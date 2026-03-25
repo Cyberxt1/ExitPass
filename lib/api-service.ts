@@ -48,6 +48,8 @@ import type {
   PassVerificationResult,
   RegisterStaffInput,
   ScanLog,
+  StudentAccessLookup,
+  StudentSignupInput,
   SubmitPassRequestInput,
   User,
 } from "./types";
@@ -151,6 +153,10 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeMatric(value: string) {
+  return value.trim().replace(/\s+/g, "").toUpperCase();
+}
+
 function getLeadRoleForEmail(email: string): User["role"] | null {
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -170,6 +176,30 @@ function getLeadRoleForEmail(email: string): User["role"] | null {
 }
 
 export const apiService = {
+  async lookupStudentAccess(matric: string) {
+    const normalizedMatric = normalizeMatric(matric);
+
+    if (!normalizedMatric) {
+      throw new Error("Student ID is required.");
+    }
+
+    return callFirebaseFunction<StudentAccessLookup>("lookupStudentAccess", {
+      matric: normalizedMatric,
+    });
+  },
+
+  async createStudentAccessAccount(input: StudentSignupInput) {
+    const response = await callFirebaseFunction<{ user: Record<string, unknown> }, StudentSignupInput>(
+      "createStudentAccount",
+      {
+        ...input,
+        matric: normalizeMatric(input.matric),
+      },
+    );
+
+    return mapUser(String(response.user.id || "student"), response.user);
+  },
+
   async submitPassRequest(
     request: Omit<SubmitPassRequestInput, "studentId"> & { studentId: string },
   ) {
@@ -190,7 +220,10 @@ export const apiService = {
         hostel: student.hostel || "",
         room: student.room || "",
         department: student.department || "",
+        faculty: student.faculty || "",
         level: student.level || "",
+        phone: student.phone || "",
+        guardianPhone: student.guardianPhone || "",
         photo: student.photo || "",
       },
       type: request.type,

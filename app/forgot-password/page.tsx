@@ -1,9 +1,9 @@
 "use client";
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
+import { Link } from '@/components/app-link';
 import { MarketingShell } from '@/components/marketing-shell';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';

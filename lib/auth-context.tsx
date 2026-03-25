@@ -51,6 +51,10 @@ type PendingStudentProfile = Omit<StudentSignupInput, "password"> & {
   updatedAt: string;
 };
 
+function normalizeMatric(value: string) {
+  return value.trim().replace(/\s+/g, "").toUpperCase();
+}
+
 function readPendingProfile(uid: string): PendingStudentProfile | null {
   if (typeof window === "undefined") {
     return null;
@@ -113,9 +117,12 @@ function buildPendingProfile(uid: string, input: StudentSignupInput): PendingStu
     email: input.email,
     matric: input.matric,
     department: input.department,
+    faculty: input.faculty,
     level: input.level,
     hostel: input.hostel,
     room: input.room,
+    phone: input.phone,
+    guardianPhone: input.guardianPhone,
     role: "student",
     permissions: [],
     disabled: false,
@@ -172,12 +179,16 @@ async function writeStudentProfile(profile: PendingStudentProfile) {
   await setDoc(doc(getFirebaseDb(), "users", profile.uid), {
     name: profile.name,
     email: profile.email,
-    matric: profile.matric,
+    matric: normalizeMatric(profile.matric),
+    matricNormalized: normalizeMatric(profile.matric),
     role: "student",
     department: profile.department,
+    faculty: profile.faculty,
     level: profile.level,
     hostel: profile.hostel,
     room: profile.room,
+    phone: profile.phone,
+    guardianPhone: profile.guardianPhone,
     permissions: [],
     disabled: false,
     createdAt: serverTimestamp(),
@@ -233,9 +244,12 @@ async function loadPendingFallback(firebaseUser: FirebaseUser): Promise<User | n
     matric: pendingProfile.matric,
     role: "student",
     department: pendingProfile.department,
+    faculty: pendingProfile.faculty,
     level: pendingProfile.level,
     hostel: pendingProfile.hostel,
     room: pendingProfile.room,
+    phone: pendingProfile.phone,
+    guardianPhone: pendingProfile.guardianPhone,
     photo: firebaseUser.photoURL || undefined,
     permissions: [],
     disabled: false,

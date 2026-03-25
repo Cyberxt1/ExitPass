@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Bell,
@@ -24,12 +24,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
+import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import { countPassesByStatus, formatDateTime, getPassStatusMeta } from '@/lib/platform';
 import type { Announcement, Pass } from '@/lib/types';
 
 export default function DashboardPage() {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [activePasses, setActivePasses] = useState<Pass[]>([]);
   const [passHistory, setPassHistory] = useState<Pass[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -38,9 +39,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isLoading && user?.role !== 'student') {
-      router.push('/admin-dashboard');
+      navigate(getDefaultRouteForRole(user?.role));
     }
-  }, [isLoading, router, user?.role]);
+  }, [isLoading, navigate, user?.role]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -111,16 +112,13 @@ export default function DashboardPage() {
           }
           actions={
             <>
-              <Button
-                onClick={() => router.push('/dashboard/request')}
-                className="rounded-full border-0 bg-[linear-gradient(135deg,#ff7a18,#ff477e)] text-white hover:opacity-95"
-              >
+              <Button onClick={() => navigate('/dashboard/request')} className="brand-cta rounded-full border-0">
                 <Plus className="mr-2 h-4 w-4" />
                 New request
               </Button>
               <Button
                 variant="outline"
-                onClick={() => router.push('/dashboard/passes')}
+                onClick={() => navigate('/dashboard/passes')}
                 className="rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
               >
                 <QrCode className="mr-2 h-4 w-4" />
@@ -141,21 +139,21 @@ export default function DashboardPage() {
               value={openRequests}
               description="Requests still waiting on approval."
               icon={Clock3}
-              accentClassName="bg-[linear-gradient(135deg,rgba(255,196,87,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Approved"
               value={approvedPasses}
               description="Passes cleared for use so far."
               icon={CheckCircle2}
-              accentClassName="bg-[linear-gradient(135deg,rgba(51,200,143,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="History"
               value={passHistory.length}
               description="Every request and pass record in one place."
               icon={Bell}
-              accentClassName="bg-[linear-gradient(135deg,rgba(89,179,255,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
           </div>
         </PageHero>
@@ -181,7 +179,7 @@ export default function DashboardPage() {
               >
                 {activePasses[0] ? (
                   <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                    <div className="rounded-[1.75rem] border border-white/70 bg-[linear-gradient(135deg,rgba(255,122,24,0.12),rgba(89,179,255,0.08),rgba(255,255,255,0.96))] p-5">
+                    <div className="brand-panel-soft rounded-[1.75rem] border p-5">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -199,7 +197,7 @@ export default function DashboardPage() {
                       <p className="mt-4 text-sm leading-7 text-slate-600">{activePasses[0].reason}</p>
                       <div className="mt-5 flex flex-wrap gap-3">
                         <Button
-                          onClick={() => router.push('/dashboard/passes')}
+                          onClick={() => navigate('/dashboard/passes')}
                           className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
                         >
                           Open pass wallet
@@ -260,7 +258,7 @@ export default function DashboardPage() {
                     description="Your first request will appear here with live progress through chaplaincy, hall admin review, and gate readiness."
                     action={
                       <Button
-                        onClick={() => router.push('/dashboard/request')}
+                        onClick={() => navigate('/dashboard/request')}
                         className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
                       >
                         Start first request
@@ -309,7 +307,7 @@ export default function DashboardPage() {
               action={
                 <Button
                   variant="outline"
-                  onClick={() => router.push('/dashboard/passes')}
+                  onClick={() => navigate('/dashboard/passes')}
                   className="rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
                 >
                   Full history
@@ -325,7 +323,7 @@ export default function DashboardPage() {
                       <button
                         key={pass.id}
                         type="button"
-                        onClick={() => router.push('/dashboard/passes')}
+                        onClick={() => navigate('/dashboard/passes')}
                         className="flex w-full flex-col gap-4 rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4 text-left transition hover:border-slate-300 hover:bg-white sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>

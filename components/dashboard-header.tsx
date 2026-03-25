@@ -1,9 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, LogOut, User } from 'lucide-react';
 
+import { Link } from '@/components/app-link';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { getRoleLabel } from '@/lib/platform';
@@ -14,20 +14,20 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ title }: DashboardHeaderProps) {
   const { user, logout } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     void logout().finally(() => {
-      router.push('/login');
+      navigate('/login');
     });
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/40 bg-white/70 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-blue-100/70 bg-white/82 backdrop-blur-xl">
       <div className="mx-auto flex h-[4.5rem] max-w-[1800px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" className="hidden items-center gap-3 md:flex">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#ff7a18,#ff477e)] text-sm font-semibold text-white shadow-[0_20px_40px_-20px_rgba(255,71,126,0.8)]">
+            <span className="brand-mark inline-flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-semibold text-white">
               EP
             </span>
           </Link>
@@ -55,8 +55,8 @@ export function DashboardHeader({ title }: DashboardHeaderProps) {
           <div className="hidden items-center gap-3 rounded-full border border-white/80 bg-white/80 px-3 py-2 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.45)] sm:flex">
             {user?.photo && (
               <img
-                src={user.photo}
-                alt={user.name}
+              src={user.photo}
+              alt={user.name}
                 className="w-8 h-8 rounded-full object-cover"
               />
             )}
@@ -76,7 +76,7 @@ export function DashboardHeader({ title }: DashboardHeaderProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push('/dashboard/profile')}
+              onClick={() => navigate('/dashboard/profile')}
               className="rounded-full border border-white/80 bg-white/80 text-slate-700 hover:bg-white hover:text-slate-950"
             >
               <User className="w-4 h-4" />

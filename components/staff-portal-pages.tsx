@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertCircle, ArrowRight, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 
+import { Link } from "@/components/app-link";
 import { MarketingShell } from "@/components/marketing-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,16 +22,16 @@ export function StaffPortalLanding({ portal }: { portal: StaffPortalSlug }) {
     <MarketingShell compact>
       <div className="mx-auto flex min-h-[76vh] max-w-4xl items-center justify-center">
         <div className="grid w-full gap-6 md:grid-cols-[1.15fr_0.85fr]">
-          <Card className="border-white/80 bg-white/80 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.5)] backdrop-blur-xl">
+          <Card className="brand-panel border backdrop-blur-xl">
             <CardHeader className="space-y-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white">
+              <div className="brand-mark flex h-14 w-14 items-center justify-center rounded-2xl text-white">
                 <ShieldCheck className="h-6 w-6" />
               </div>
               <CardTitle className="text-3xl font-semibold text-slate-950">{config.title}</CardTitle>
               <CardDescription className="text-base text-slate-500">{config.description}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <div className="brand-panel-soft rounded-3xl border p-4 text-sm text-slate-600">
                 <p className="font-medium text-slate-900">Lead email</p>
                 <p className="mt-2">{config.leadEmail}</p>
               </div>
@@ -42,7 +42,7 @@ export function StaffPortalLanding({ portal }: { portal: StaffPortalSlug }) {
                   </Button>
                 </Link>
                 <Link href={`/${portal}/signup`} className="flex-1">
-                  <Button variant="outline" className="h-11 w-full rounded-full">
+                  <Button variant="outline" className="h-11 w-full rounded-full border-white/80 bg-white/80 hover:bg-white">
                     Sign Up
                   </Button>
                 </Link>
@@ -50,7 +50,7 @@ export function StaffPortalLanding({ portal }: { portal: StaffPortalSlug }) {
             </CardContent>
           </Card>
 
-          <Card className="border-white/70 bg-white/70 backdrop-blur-xl">
+          <Card className="brand-panel-soft border backdrop-blur-xl">
             <CardHeader>
               <CardTitle className="text-xl text-slate-950">Quick links</CardTitle>
             </CardHeader>
@@ -69,7 +69,7 @@ export function StaffPortalLanding({ portal }: { portal: StaffPortalSlug }) {
 
 export function StaffPortalLogin({ portal }: { portal: StaffPortalSlug }) {
   const config = staffPortals[portal];
-  const router = useRouter();
+  const navigate = useNavigate();
   const { login, error: authError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -88,7 +88,7 @@ export function StaffPortalLogin({ portal }: { portal: StaffPortalSlug }) {
         throw new Error(`This account belongs on /${getPortalForRole(profile.role)} instead.`);
       }
 
-      router.push(getDefaultRouteForRole(profile.role));
+      navigate(getDefaultRouteForRole(profile.role));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Invalid email or password.");
     } finally {
@@ -99,9 +99,9 @@ export function StaffPortalLogin({ portal }: { portal: StaffPortalSlug }) {
   return (
     <MarketingShell compact>
       <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center">
-        <Card className="w-full border-white/80 bg-white/80 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.5)] backdrop-blur-xl">
+        <Card className="brand-panel w-full border backdrop-blur-xl">
           <CardHeader className="space-y-3 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
+            <div className="brand-mark mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-sm font-semibold text-white">
               {config.label.slice(0, 2).toUpperCase()}
             </div>
             <CardTitle className="text-3xl font-semibold text-slate-950">{config.label} Log In</CardTitle>
@@ -135,9 +135,9 @@ export function StaffPortalLogin({ portal }: { portal: StaffPortalSlug }) {
               {error && <ErrorNotice message={error} />}
 
               {!error && authError && (
-                <div className="flex gap-3 rounded-2xl border border-amber-300/50 bg-amber-100/70 p-3">
-                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
-                  <p className="text-sm text-amber-800">{authError}</p>
+                <div className="flex gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-3">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-700" />
+                  <p className="text-sm text-blue-800">{authError}</p>
                 </div>
               )}
 
@@ -185,8 +185,8 @@ export function StaffPortalSignup({ portal }: { portal: StaffPortalSlug }) {
 
 function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
   const config = staffPortals[portal];
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const { login } = useAuth();
   const [invite, setInvite] = useState<StaffInvite | null>(null);
@@ -267,7 +267,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
         throw new Error(`This account belongs on /${getPortalForRole(profile.role || createdUser.role)} instead.`);
       }
 
-      router.push(getDefaultRouteForRole(profile.role || createdUser.role));
+      navigate(getDefaultRouteForRole(profile.role || createdUser.role));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to create the staff account.");
     } finally {
@@ -282,7 +282,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
   return (
     <MarketingShell compact>
       <div className="mx-auto flex min-h-[78vh] max-w-2xl items-center justify-center">
-        <Card className="w-full border-white/80 bg-white/80 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.5)] backdrop-blur-xl">
+        <Card className="brand-panel w-full border backdrop-blur-xl">
           <CardHeader className="space-y-3">
             <CardTitle className="text-3xl font-semibold text-slate-950">{config.label} Sign Up</CardTitle>
             <CardDescription className="text-base text-slate-500">{subtitle}</CardDescription>
@@ -290,7 +290,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
 
           <CardContent className="space-y-5">
             {invite && (
-              <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <div className="rounded-3xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                 <div className="flex items-center gap-2 font-medium">
                   <CheckCircle2 className="h-4 w-4" />
                   Invite ready
@@ -399,7 +399,7 @@ function StaffSignupFallback() {
   return (
     <MarketingShell compact>
       <div className="mx-auto flex min-h-[78vh] max-w-2xl items-center justify-center">
-        <Card className="w-full border-white/80 bg-white/80 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.5)] backdrop-blur-xl">
+        <Card className="brand-panel w-full border backdrop-blur-xl">
           <CardContent className="py-16 text-center text-slate-500">Loading staff access...</CardContent>
         </Card>
       </div>
@@ -409,7 +409,7 @@ function StaffSignupFallback() {
 
 function PortalLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 hover:bg-slate-50">
+    <Link href={href} className="brand-panel-soft flex items-center justify-between rounded-2xl border px-4 py-3 hover:border-blue-300">
       <span>{label}</span>
       <ArrowRight className="h-4 w-4" />
     </Link>

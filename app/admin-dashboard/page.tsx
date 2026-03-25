@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
-  Bell,
   CheckCircle2,
   Copy,
   Eye,
@@ -12,7 +11,6 @@ import {
   Plus,
   Send,
   ShieldCheck,
-  UserPlus,
   Users,
   X,
   XCircle,
@@ -89,6 +87,30 @@ function getWorkspaceDescription(role?: User['role']) {
   }
 }
 
+function getStageLabel(request: PassRequest) {
+  if (request.status === 'rejected') {
+    return 'Rejected';
+  }
+
+  if (request.status === 'approved' || request.currentStage === 'completed') {
+    return 'Completed';
+  }
+
+  if (
+    request.currentStage === 'chaplaincy' ||
+    request.status === 'chaplaincy_required' ||
+    !request.chaplainApproval
+  ) {
+    return 'Chaplaincy review';
+  }
+
+  if (request.currentStage === 'hall_admin' || request.status === 'pending') {
+    return 'Hall admin review';
+  }
+
+  return 'In review';
+}
+
 function getAllowedInviteRoles(role?: User['role']) {
   if (role === 'super_admin') {
     return [
@@ -111,7 +133,7 @@ function getAllowedInviteRoles(role?: User['role']) {
 
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>('approvals');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [pendingRequests, setPendingRequests] = useState<PassRequest[]>([]);
@@ -161,9 +183,9 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!isLoading && !isAdminRole(user?.role)) {
-      router.push('/dashboard');
+      navigate('/dashboard');
     }
-  }, [isLoading, router, user?.role]);
+  }, [isLoading, navigate, user?.role]);
 
   useEffect(() => {
     if (!user?.role) {
@@ -387,38 +409,38 @@ export default function AdminDashboardPage() {
               value={studentsLoading ? '...' : students.length}
               description="Student accounts available for review."
               icon={Users}
-              accentClassName="bg-[linear-gradient(135deg,rgba(89,179,255,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Staff"
               value={staffLoading ? '...' : admins.length}
               description="Active staff profiles on the platform."
               icon={ShieldCheck}
-              accentClassName="bg-[linear-gradient(135deg,rgba(51,200,143,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Active passes"
               value={analyticsLoading ? '...' : analytics?.activePassesCount ?? 0}
               description="Approved passes currently in motion."
               icon={BarChart3}
-              accentClassName="bg-[linear-gradient(135deg,rgba(255,196,87,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
           </div>
         </PageHero>
 
         {actionMessage ? (
-          <div className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
             {actionMessage}
           </div>
         ) : null}
         {actionError ? (
-          <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded-[1.5rem] border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700">
             {actionError}
           </div>
         ) : null}
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabId)} className="w-full">
-        <TabsList className="mb-8 grid h-auto w-full gap-2 rounded-[1.5rem] border border-white/70 bg-white/76 p-2 sm:grid-cols-3 lg:grid-cols-5">
+        <TabsList className="brand-panel mb-8 grid h-auto w-full gap-2 rounded-[1.5rem] border p-2 sm:grid-cols-3 lg:grid-cols-5">
           {availableTabs.map((tab) => (
             <TabsTrigger
               key={tab}
@@ -448,16 +470,16 @@ export default function AdminDashboardPage() {
           ) : (
             <div className="space-y-4">
               {pendingRequests.map((request) => (
-                <Card key={request.id} className="border-border/30">
+                <Card key={request.id} className="brand-panel border">
                   <CardContent className="space-y-4 pt-6">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-lg font-semibold text-foreground">{request.student?.name || 'Unknown student'}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-lg font-semibold text-slate-950">{request.student?.name || 'Unknown student'}</p>
+                        <p className="text-sm text-slate-500">
                           {request.student?.matric} {request.student?.hostel ? `• ${request.student.hostel}` : ''}
                         </p>
                       </div>
-                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                      <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
                         {getStageLabel(request)}
                       </span>
                     </div>
@@ -474,12 +496,13 @@ export default function AdminDashboardPage() {
                       }
                       placeholder="Add a reason if you need to deny this request..."
                       rows={3}
+                      className="rounded-[1.25rem] border-slate-200 bg-white/85"
                     />
                     <div className="flex flex-wrap gap-2">
                       <Button
                         onClick={() => handleApprove(request.id)}
                         disabled={processingId === request.id}
-                        className="bg-green-600 text-white hover:bg-green-700"
+                        className="brand-cta rounded-full border-0"
                       >
                         {processingId === request.id ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -490,7 +513,7 @@ export default function AdminDashboardPage() {
                       </Button>
                       <Button
                         variant="outline"
-                        className="border-red-300 text-red-600 hover:bg-red-50"
+                        className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
                         disabled={processingId === request.id || !rejectionReasons[request.id]?.trim()}
                         onClick={() => handleReject(request.id)}
                       >
@@ -508,40 +531,43 @@ export default function AdminDashboardPage() {
         <TabsContent value="students" className="space-y-4">
           <SectionIntro title="Students" description="View student records and recent pass history." />
           {selectedStudent ? (
-            <Card className="border-border/30">
+            <Card className="brand-panel border">
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <CardTitle>{selectedStudent.name}</CardTitle>
-                    <CardDescription>{selectedStudent.matric}</CardDescription>
+                    <CardTitle className="text-slate-950">{selectedStudent.name}</CardTitle>
+                    <CardDescription className="text-slate-500">{selectedStudent.matric}</CardDescription>
                   </div>
-                  <Button variant="outline" onClick={() => setSelectedStudent(null)}>
+                  <Button variant="outline" className="rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => setSelectedStudent(null)}>
                     Back
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <InfoBlock label="Faculty" value={selectedStudent.faculty || 'Not set'} />
                   <InfoBlock label="Department" value={selectedStudent.department || 'Not set'} />
                   <InfoBlock label="Level" value={selectedStudent.level || 'Not set'} />
                   <InfoBlock label="Hostel" value={selectedStudent.hostel || 'Not set'} />
-                  <InfoBlock label="Room" value={selectedStudent.room || 'Not set'} />
+                  <InfoBlock label="Room / Hostel No." value={selectedStudent.room || 'Not set'} />
+                  <InfoBlock label="Phone" value={selectedStudent.phone || 'Not set'} />
+                  <InfoBlock label="Guardian Phone" value={selectedStudent.guardianPhone || 'Not set'} />
                   <InfoBlock label="Total Requests" value={String(selectedStudent.totalRequests || 0)} />
                   <InfoBlock label="Approved Passes" value={String(selectedStudent.approvedPasses || 0)} />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">Pass history</h3>
+                  <h3 className="text-lg font-semibold text-slate-950">Pass history</h3>
                   {selectedStudent.passHistory?.length ? (
                     selectedStudent.passHistory.map((pass: any) => (
-                      <div key={pass.id} className="rounded-2xl border border-border/30 px-4 py-3">
-                        <p className="font-medium">{pass.destination}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <div key={pass.id} className="rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3">
+                        <p className="font-medium text-slate-950">{pass.destination}</p>
+                        <p className="text-sm text-slate-500">
                           {pass.type} • {pass.status}
                         </p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground">No pass history yet.</p>
+                    <p className="text-sm text-slate-500">No pass history yet.</p>
                   )}
                 </div>
               </CardContent>
@@ -551,14 +577,14 @@ export default function AdminDashboardPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {students.map((student) => (
-                <Card key={student.id} className="border-border/30">
+                <Card key={student.id} className="brand-panel border">
                   <CardContent className="space-y-3 pt-6">
                     <div>
-                      <p className="font-semibold text-foreground">{student.name}</p>
-                      <p className="text-xs text-muted-foreground">{student.matric}</p>
+                      <p className="font-semibold text-slate-950">{student.name}</p>
+                      <p className="text-xs text-slate-500">{student.matric}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{student.hostel || 'No hostel set'}</p>
-                    <Button variant="outline" className="w-full" onClick={() => handleViewStudent(student.id)}>
+                    <p className="text-sm text-slate-500">{student.hostel || 'No hostel set'}</p>
+                    <Button variant="outline" className="w-full rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => handleViewStudent(student.id)}>
                       <Eye className="mr-2 h-4 w-4" />
                       View details
                     </Button>
@@ -576,9 +602,9 @@ export default function AdminDashboardPage() {
           />
 
           {canManageHostels && (
-            <Card className="border-border/30 bg-muted/20">
+            <Card className="brand-panel border">
               <CardHeader>
-                <CardTitle className="text-lg">Hostels</CardTitle>
+                <CardTitle className="text-lg text-slate-950">Hostels</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -586,15 +612,16 @@ export default function AdminDashboardPage() {
                     value={hostelName}
                     onChange={(event) => setHostelName(event.target.value)}
                     placeholder="Add a hostel"
+                    className="border-slate-200 bg-white/85"
                   />
-                  <Button onClick={handleCreateHostel}>
+                  <Button onClick={handleCreateHostel} className="brand-cta rounded-full border-0">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Hostel
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {hostels.map((hostel) => (
-                    <span key={hostel.id} className="rounded-full bg-primary/10 px-3 py-1 text-sm text-primary">
+                    <span key={hostel.id} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-800">
                       {hostel.name}
                     </span>
                   ))}
@@ -604,10 +631,10 @@ export default function AdminDashboardPage() {
           )}
 
           {canManageStaff && (
-            <Card className="border-border/30 bg-muted/20">
+            <Card className="brand-panel border">
               <CardHeader>
-                <CardTitle className="text-lg">Create invite link</CardTitle>
-                <CardDescription>Invite new hall admins, chapel staff, or security staff.</CardDescription>
+                <CardTitle className="text-lg text-slate-950">Create invite link</CardTitle>
+                <CardDescription className="text-slate-500">Invite new hall admins, chapel staff, or security staff.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
                 <Field label="Name">
@@ -615,6 +642,7 @@ export default function AdminDashboardPage() {
                     value={inviteForm.name}
                     onChange={(event) => setInviteForm((current) => ({ ...current, name: event.target.value }))}
                     placeholder="Optional display name"
+                    className="border-slate-200 bg-white/85"
                   />
                 </Field>
                 <Field label="Email">
@@ -623,6 +651,7 @@ export default function AdminDashboardPage() {
                     value={inviteForm.email}
                     onChange={(event) => setInviteForm((current) => ({ ...current, email: event.target.value }))}
                     placeholder="staff@school.edu"
+                    className="border-slate-200 bg-white/85"
                   />
                 </Field>
                 <Field label="Role">
@@ -634,7 +663,7 @@ export default function AdminDashboardPage() {
                         role: event.target.value as CreateStaffInviteInput['role'],
                       }))
                     }
-                    className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950"
                   >
                     {getAllowedInviteRoles(user?.role).map((option) => (
                       <option key={option.value} value={option.value}>
@@ -650,7 +679,7 @@ export default function AdminDashboardPage() {
                       onChange={(event) =>
                         setInviteForm((current) => ({ ...current, hostelId: event.target.value }))
                       }
-                      className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950"
                     >
                       <option value="">Select hostel</option>
                       {hostels.map((hostel) => (
@@ -662,16 +691,16 @@ export default function AdminDashboardPage() {
                   </Field>
                 )}
                 <div className="md:col-span-2">
-                  <Button onClick={handleCreateInvite} className="w-full bg-primary hover:bg-primary/90">
+                  <Button onClick={handleCreateInvite} className="brand-cta h-11 w-full rounded-full border-0">
                     <Send className="mr-2 h-4 w-4" />
                     Create Invite Link
                   </Button>
                 </div>
                 {createdInviteUrl && (
-                  <div className="md:col-span-2 rounded-2xl border border-emerald-300/50 bg-emerald-50/70 p-4 text-sm">
-                    <p className="font-medium text-emerald-900">Latest invite link</p>
-                    <p className="mt-2 break-all text-emerald-800">{createdInviteUrl}</p>
-                    <Button variant="outline" className="mt-3" onClick={() => handleCopy(createdInviteUrl)}>
+                  <div className="md:col-span-2 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm">
+                    <p className="font-medium text-blue-900">Latest invite link</p>
+                    <p className="mt-2 break-all text-blue-800">{createdInviteUrl}</p>
+                    <Button variant="outline" className="mt-3 rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => handleCopy(createdInviteUrl)}>
                       <Copy className="mr-2 h-4 w-4" />
                       Copy link
                     </Button>
@@ -685,22 +714,22 @@ export default function AdminDashboardPage() {
             <LoadingCard label="Loading staff..." />
           ) : (
             <div className="grid gap-6 lg:grid-cols-2">
-              <Card className="border-border/30">
+              <Card className="brand-panel border">
                 <CardHeader>
-                  <CardTitle className="text-lg">Staff members</CardTitle>
+                  <CardTitle className="text-lg text-slate-950">Staff members</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {admins.map((admin) => (
-                    <div key={admin.id} className="flex items-center justify-between rounded-2xl border border-border/30 px-4 py-3">
+                    <div key={admin.id} className="flex items-center justify-between rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3">
                       <div>
-                        <p className="font-medium">{admin.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="font-medium text-slate-950">{admin.name}</p>
+                        <p className="text-sm text-slate-500">
                           {admin.email} • {admin.role.replace('_', ' ')}
                         </p>
                       </div>
                       {user?.role === 'super_admin' && user.id !== admin.id && (
-                        <Button variant="ghost" size="sm" onClick={() => handleRemoveAdmin(admin.id)}>
-                          <X className="h-4 w-4 text-red-600" />
+                        <Button variant="ghost" size="sm" className="rounded-full hover:bg-slate-100" onClick={() => handleRemoveAdmin(admin.id)}>
+                          <X className="h-4 w-4 text-slate-700" />
                         </Button>
                       )}
                     </div>
@@ -708,23 +737,23 @@ export default function AdminDashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-border/30">
+              <Card className="brand-panel border">
                 <CardHeader>
-                  <CardTitle className="text-lg">Invite links</CardTitle>
+                  <CardTitle className="text-lg text-slate-950">Invite links</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {invites.length ? (
                     invites.map((invite) => {
                       const inviteUrl = buildInviteUrl(invite.id, invite.role);
                       return (
-                        <div key={invite.id} className="rounded-2xl border border-border/30 px-4 py-3">
-                          <p className="font-medium">{invite.email}</p>
-                          <p className="text-sm text-muted-foreground">
+                        <div key={invite.id} className="rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3">
+                          <p className="font-medium text-slate-950">{invite.email}</p>
+                          <p className="text-sm text-slate-500">
                             {invite.role.replace('_', ' ')} • {invite.status}
                             {invite.hostel ? ` • ${invite.hostel}` : ''}
                           </p>
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleCopy(inviteUrl)}>
+                            <Button variant="outline" size="sm" className="rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => handleCopy(inviteUrl)}>
                               <Copy className="mr-2 h-4 w-4" />
                               Copy link
                             </Button>
@@ -733,7 +762,7 @@ export default function AdminDashboardPage() {
                       );
                     })
                   ) : (
-                    <p className="text-sm text-muted-foreground">No invites created yet.</p>
+                    <p className="text-sm text-slate-500">No invites created yet.</p>
                   )}
                 </CardContent>
               </Card>
@@ -743,13 +772,14 @@ export default function AdminDashboardPage() {
 
         <TabsContent value="updates" className="space-y-4">
           <SectionIntro title="Updates" description="Send announcements to students and staff." />
-          <Card className="border-border/30 bg-muted/20">
+          <Card className="brand-panel border">
             <CardContent className="space-y-4 pt-6">
               <Field label="Title">
                 <Input
                   value={announcement.title}
                   onChange={(event) => setAnnouncement((current) => ({ ...current, title: event.target.value }))}
                   placeholder="Announcement title"
+                  className="border-slate-200 bg-white/85"
                 />
               </Field>
               <Field label="Message">
@@ -758,9 +788,10 @@ export default function AdminDashboardPage() {
                   onChange={(event) => setAnnouncement((current) => ({ ...current, message: event.target.value }))}
                   placeholder="Write your announcement here..."
                   rows={5}
+                  className="rounded-[1.25rem] border-slate-200 bg-white/85"
                 />
               </Field>
-              <Button onClick={handleSendAnnouncement} className="w-full bg-primary hover:bg-primary/90">
+              <Button onClick={handleSendAnnouncement} className="brand-cta h-11 w-full rounded-full border-0">
                 <Send className="mr-2 h-4 w-4" />
                 Send announcement
               </Button>
@@ -770,10 +801,10 @@ export default function AdminDashboardPage() {
             <LoadingCard label="Loading announcements..." />
           ) : (
             announcements.map((item) => (
-              <Card key={item.id} className="border-border/30">
+              <Card key={item.id} className="brand-panel border">
                 <CardContent className="pt-6">
-                  <p className="font-semibold">{item.title}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{item.message}</p>
+                  <p className="font-semibold text-slate-950">{item.title}</p>
+                  <p className="mt-2 text-sm text-slate-500">{item.message}</p>
                 </CardContent>
               </Card>
             ))
@@ -787,24 +818,24 @@ export default function AdminDashboardPage() {
           ) : analytics ? (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                <StatCard label="Students" value={analytics.totalStudents} color="text-primary" />
-                <StatCard label="Requests" value={analytics.totalRequests} color="text-blue-600" />
-                <StatCard label="Approved" value={analytics.approvedCount} color="text-green-600" />
-                <StatCard label="Pending" value={analytics.pendingCount} color="text-yellow-600" />
-                <StatCard label="Rejected" value={analytics.rejectedCount} color="text-red-600" />
-                <StatCard label="Active Passes" value={analytics.activePassesCount} color="text-purple-600" />
+                <StatCard label="Students" value={analytics.totalStudents} color="text-slate-950" />
+                <StatCard label="Requests" value={analytics.totalRequests} color="text-blue-700" />
+                <StatCard label="Approved" value={analytics.approvedCount} color="text-blue-600" />
+                <StatCard label="Pending" value={analytics.pendingCount} color="text-slate-700" />
+                <StatCard label="Rejected" value={analytics.rejectedCount} color="text-slate-500" />
+                <StatCard label="Active Passes" value={analytics.activePassesCount} color="text-blue-500" />
               </div>
-              <Card className="border-border/30">
+              <Card className="brand-panel border">
                 <CardHeader>
-                  <CardTitle className="text-lg">Weekly trend</CardTitle>
+                  <CardTitle className="text-lg text-slate-950">Weekly trend</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {analytics.trend.map((row: any) => (
-                    <div key={row.day} className="grid grid-cols-4 rounded-2xl border border-border/20 px-4 py-3 text-sm">
-                      <span className="font-medium">{row.day}</span>
-                      <span>{row.requests} requests</span>
-                      <span className="text-green-600">{row.approved} approved</span>
-                      <span className="text-red-600">{row.rejected} rejected</span>
+                    <div key={row.day} className="grid grid-cols-4 rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3 text-sm">
+                      <span className="font-medium text-slate-950">{row.day}</span>
+                      <span className="text-slate-700">{row.requests} requests</span>
+                      <span className="text-blue-700">{row.approved} approved</span>
+                      <span className="text-slate-500">{row.rejected} rejected</span>
                     </div>
                   ))}
                 </CardContent>
@@ -821,17 +852,17 @@ export default function AdminDashboardPage() {
 function SectionIntro({ title, description }: { title: string; description: string }) {
   return (
     <div>
-      <h1 className="text-3xl font-bold text-foreground">{title}</h1>
-      <p className="mt-2 text-muted-foreground">{description}</p>
+      <h1 className="text-3xl font-semibold tracking-tight text-slate-950">{title}</h1>
+      <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">{description}</p>
     </div>
   );
 }
 
 function LoadingCard({ label }: { label: string }) {
   return (
-    <Card className="border-border/30">
+    <Card className="brand-panel border">
       <CardContent className="pt-6">
-        <p className="text-center text-muted-foreground">{label}</p>
+        <p className="text-center text-slate-500">{label}</p>
       </CardContent>
     </Card>
   );
@@ -839,9 +870,9 @@ function LoadingCard({ label }: { label: string }) {
 
 function EmptyCard({ title }: { title: string }) {
   return (
-    <Card className="border-border/30">
+    <Card className="brand-panel border">
       <CardContent className="pt-6">
-        <p className="text-center text-muted-foreground">{title}</p>
+        <p className="text-center text-slate-500">{title}</p>
       </CardContent>
     </Card>
   );
@@ -850,7 +881,7 @@ function EmptyCard({ title }: { title: string }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">{label}</label>
+      <label className="text-sm font-medium text-slate-700">{label}</label>
       {children}
     </div>
   );
@@ -858,19 +889,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-muted/40 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm text-foreground">{value}</p>
+    <div className="brand-panel-soft rounded-2xl border p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-sm text-slate-900">{value}</p>
     </div>
   );
 }
 
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <Card className="border-border/30">
+    <Card className="brand-panel border">
       <CardContent className="pt-6">
-        <p className={`text-2xl font-bold ${color}`}>{value}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+        <p className={`text-2xl font-semibold ${color}`}>{value}</p>
+        <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
       </CardContent>
     </Card>
   );

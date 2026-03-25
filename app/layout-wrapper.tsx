@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth-context";
 import { getDefaultRouteForRole } from "@/lib/firebase/auth";
@@ -32,8 +32,8 @@ function isPublicRoute(pathname: string) {
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   useEffect(() => {
     if (isLoading) {
@@ -41,7 +41,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     }
 
     if (!user && !isPublicRoute(pathname)) {
-      router.push("/login");
+      navigate("/login");
       return;
     }
 
@@ -51,9 +51,9 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
         (route) => pathname === route || pathname.startsWith(`${route}/`),
       )
     ) {
-      router.push(getDefaultRouteForRole(user.role));
+      navigate(getDefaultRouteForRole(user.role));
     }
-  }, [isLoading, pathname, router, user]);
+  }, [isLoading, navigate, pathname, user]);
 
   return children;
 }

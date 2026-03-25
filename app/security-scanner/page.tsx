@@ -1,38 +1,66 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
   History,
   MapPin,
   QrCode,
+  ScanLine,
+  ShieldCheck,
   User as UserIcon,
 } from 'lucide-react';
 
-import { useAuth } from '@/lib/auth-context';
-import { apiService } from '@/lib/api-service';
 import { DashboardShell } from '@/components/dashboard-shell';
+import {
+  DetailBlock,
+  EmptyState,
+  LoadingPanel,
+  MetricCard,
+  PageHero,
+  SectionCard,
+  StatusBadge,
+} from '@/components/platform-ui';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/lib/auth-context';
+import { apiService } from '@/lib/api-service';
+import { getDefaultRouteForRole } from '@/lib/firebase/auth';
+import { formatDateTime } from '@/lib/platform';
+
+type VerificationResult = {
+  pass: any;
+  isValid: boolean;
+  message: string;
+} | null;
+
+type ScanRecord = {
+  id: string;
+  qrCode: string;
+  location: string;
+  status: string;
+  timestamp: string;
+};
 
 export default function SecurityScannerPage() {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [qrInput, setQrInput] = useState('');
-  const [verificationResult, setVerificationResult] = useState<any>(null);
+  const [verificationResult, setVerificationResult] = useState<VerificationResult>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [scanHistory, setScanHistory] = useState<any[]>([]);
+  const [scanHistory, setScanHistory] = useState<ScanRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('scanner');
 
   useEffect(() => {
     if (!isLoading && user?.role !== 'security') {
-      router.push('/dashboard');
+      navigate(getDefaultRouteForRole(user?.role));
     }
-  }, [isLoading, router, user?.role]);
+  }, [isLoading, navigate, user?.role]);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -41,11 +69,15 @@ export default function SecurityScannerPage() {
   }, [activeTab]);
 
   const loadScanHistory = async () => {
+    setHistoryLoading(true);
+
     try {
       const history = await apiService.getScanHistory(20);
       setScanHistory(history);
     } catch (error) {
       console.error('Error loading scan history:', error);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -68,14 +100,14 @@ export default function SecurityScannerPage() {
         setVerificationResult({
           pass: null,
           isValid: false,
-          message: 'QR Code not found or invalid',
+          message: 'QR code not found or invalid.',
         });
       }
     } catch (error) {
       setVerificationResult({
         pass: null,
         isValid: false,
-        message: 'Error verifying QR code',
+        message: 'Error verifying QR code.',
       });
     } finally {
       setIsScanning(false);
@@ -87,242 +119,293 @@ export default function SecurityScannerPage() {
     setQrInput('');
   };
 
+  const latestScan = scanHistory[0] ?? null;
+  const successfulScans = useMemo(
+    () => scanHistory.filter((scan) => scan.status === 'success').length,
+    [scanHistory],
+  );
+
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
+
+  if (user?.role !== 'security') {
+    return null;
   }
 
   return (
-    <DashboardShell title="Security Scanner" contentClassName="max-w-4xl mx-auto pb-20 lg:pb-8">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 gap-2 mb-8 bg-muted/50 p-1 h-auto">
-                <TabsTrigger value="scanner" className="text-xs sm:text-sm">
-                  <QrCode className="w-4 h-4 mr-2 hidden sm:inline" />
-                  Scanner
-                </TabsTrigger>
-                <TabsTrigger value="history" className="text-xs sm:text-sm">
-                  <History className="w-4 h-4 mr-2 hidden sm:inline" />
-                  History
-                </TabsTrigger>
-              </TabsList>
+    <DashboardShell title="Security Scanner" contentClassName="mx-auto max-w-7xl pb-20 lg:pb-8">
+      <div className="space-y-6">
+        <PageHero
+          eyebrow="Gate operations"
+          title="Verify every pass in one clear lane"
+          description="Scan or paste the QR code, confirm the student record, and keep a visible history of every gate decision."
+          actions={
+            verificationResult ? (
+              <Button
+                variant="outline"
+                onClick={handleClearResult}
+                className="rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
+              >
+                Clear current result
+              </Button>
+            ) : undefined
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Scans loaded"
+              value={scanHistory.length}
+              description="Recent verification records in this workspace."
+              icon={History}
+            />
+            <MetricCard
+              label="Successful"
+              value={successfulScans}
+              description="Scans that passed verification."
+              icon={CheckCircle2}
+              accentClassName="brand-icon-chip"
+            />
+            <MetricCard
+              label="Current gate"
+              value="Main Gate"
+              description="Default logging location for each scan."
+              icon={ShieldCheck}
+              accentClassName="brand-icon-chip"
+            />
+            <MetricCard
+              label="Lane"
+              value={activeTab === 'scanner' ? 'Scanner' : 'History'}
+              description="Switch between live verification and audit trail."
+              icon={ScanLine}
+              accentClassName="brand-icon-chip"
+            />
+          </div>
+        </PageHero>
 
-              <TabsContent value="scanner" className="space-y-6">
-                <div className="mb-8">
-                  <h1 className="text-3xl font-bold text-foreground mb-2">QR Code Scanner</h1>
-                  <p className="text-muted-foreground">Scan or paste student pass QR codes</p>
-                </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="brand-panel grid h-auto w-full grid-cols-2 gap-2 rounded-[1.5rem] border p-2">
+            <TabsTrigger
+              value="scanner"
+              className="rounded-[1rem] text-xs data-[state=active]:bg-slate-950 data-[state=active]:text-white sm:text-sm"
+            >
+              <QrCode className="mr-2 h-4 w-4" />
+              Scanner
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="rounded-[1rem] text-xs data-[state=active]:bg-slate-950 data-[state=active]:text-white sm:text-sm"
+            >
+              <History className="mr-2 h-4 w-4" />
+              History
+            </TabsTrigger>
+          </TabsList>
 
-                <Card className="border-border/30 bg-muted/20">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Scan Pass</CardTitle>
-                    <CardDescription>
-                      Paste the QR code data or use a barcode scanner to verify passes
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-8 border-2 border-dashed border-border/50 rounded-lg text-center bg-background/50">
-                      <QrCode className="w-16 h-16 text-primary/30 mx-auto mb-4" />
-                      <p className="text-sm text-muted-foreground mb-4">Scan or paste QR code below</p>
+          <TabsContent value="scanner" className="space-y-6">
+            <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+              <SectionCard
+                title="Live scan"
+                description="Paste the QR payload or use a hardware scanner focused on the field below."
+              >
+                <div className="space-y-5">
+                  <div className="brand-panel-soft rounded-[2rem] border p-6">
+                    <div className="brand-grid rounded-[1.5rem] border border-dashed border-blue-200 bg-white/85 p-8 text-center">
+                      <QrCode className="mx-auto h-16 w-16 text-slate-900" />
+                      <p className="mt-4 text-sm font-medium text-slate-700">
+                        Scan or paste student pass data below.
+                      </p>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                      <label className="text-sm font-medium text-slate-700">QR input</label>
                       <Input
                         placeholder="Paste QR code data here..."
                         value={qrInput}
-                        onChange={(e) => setQrInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleScan()}
-                        className="text-center font-mono text-sm"
+                        onChange={(event) => setQrInput(event.target.value)}
+                        onKeyDown={(event) => event.key === 'Enter' && void handleScan()}
+                        className="h-12 rounded-2xl border-slate-200 bg-white/85 font-mono text-sm"
                         autoFocus
                       />
                     </div>
+                  </div>
 
-                    <Button
-                      onClick={handleScan}
-                      disabled={!qrInput.trim() || isScanning}
-                      className="w-full bg-primary hover:bg-primary/90 h-12"
-                      size="lg"
-                    >
-                      <QrCode className="w-5 h-5 mr-2" />
-                      {isScanning ? 'Scanning...' : 'Verify Pass'}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {verificationResult && (
-                  <Card
-                    className={`border-border/30 ${
-                      verificationResult.isValid
-                        ? 'border-green-500/30 bg-green-50/50 dark:bg-green-950/20'
-                        : 'border-red-500/30 bg-red-50/50 dark:bg-red-950/20'
-                    }`}
+                  <Button
+                    onClick={() => void handleScan()}
+                    disabled={!qrInput.trim() || isScanning}
+                    className="brand-cta h-12 w-full rounded-full"
+                    size="lg"
                   >
-                    <CardHeader className="space-y-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {verificationResult.isValid ? (
-                            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                              <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
-                            </div>
-                          ) : (
-                            <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
-                              <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                            </div>
-                          )}
-                          <div>
-                            <CardTitle
-                              className={
-                                verificationResult.isValid
-                                  ? 'text-green-700 dark:text-green-400'
-                                  : 'text-red-700 dark:text-red-400'
-                              }
-                            >
-                              {verificationResult.message}
-                            </CardTitle>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={handleClearResult}>
-                          X
-                        </Button>
-                      </div>
-                    </CardHeader>
-
-                    {verificationResult.pass && (
-                      <CardContent className="space-y-4 border-t border-border/30 mt-4 pt-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">
-                              Student Name
-                            </p>
-                            <p className="font-semibold text-foreground flex items-center gap-2">
-                              <UserIcon className="w-4 h-4 text-primary" />
-                              {verificationResult.pass.student?.name || 'Unknown'}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">
-                              Matric No.
-                            </p>
-                            <p className="font-mono text-foreground">
-                              {verificationResult.pass.student?.matric}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">
-                              Destination
-                            </p>
-                            <p className="font-semibold text-foreground flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-primary" />
-                              {verificationResult.pass.destination}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">
-                              Pass Type
-                            </p>
-                            <p className="capitalize text-foreground font-semibold">
-                              {verificationResult.pass.type}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">
-                              Departure
-                            </p>
-                            <p className="text-sm text-foreground">
-                              {new Date(verificationResult.pass.departureDate).toLocaleString()}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">
-                              Return
-                            </p>
-                            <p className="text-sm text-foreground">
-                              {new Date(verificationResult.pass.expectedReturnDate).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-border/30">
-                          {verificationResult.isValid ? (
-                            <div className="p-4 bg-green-100/50 dark:bg-green-900/20 border border-green-300/50 dark:border-green-700/50 rounded-lg">
-                              <p className="text-sm font-semibold text-green-800 dark:text-green-300">
-                                Pass verified and valid. Student may proceed.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="p-4 bg-red-100/50 dark:bg-red-900/20 border border-red-300/50 dark:border-red-700/50 rounded-lg">
-                              <p className="text-sm font-semibold text-red-800 dark:text-red-300">
-                                Pass is invalid or expired. Entry denied.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    )}
-                  </Card>
-                )}
-              </TabsContent>
-
-              <TabsContent value="history" className="space-y-6">
-                <div className="mb-8">
-                  <h1 className="text-3xl font-bold text-foreground mb-2">Scan History</h1>
-                  <p className="text-muted-foreground">Recent pass verifications</p>
+                    <QrCode className="mr-2 h-5 w-5" />
+                    {isScanning ? 'Verifying pass...' : 'Verify pass'}
+                  </Button>
                 </div>
+              </SectionCard>
 
-                {scanHistory.length > 0 ? (
-                  <div className="space-y-3">
-                    {scanHistory.map((scan) => (
-                      <Card key={scan.id} className="border-border/30">
-                        <CardContent className="pt-6">
-                          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 items-center">
-                            <div>
-                              <p className="text-xs text-muted-foreground uppercase font-semibold">
-                                QR Code
-                              </p>
-                              <p className="font-mono text-xs text-foreground truncate">{scan.qrCode}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground uppercase font-semibold">
-                                Location
-                              </p>
-                              <p className="text-sm text-foreground">{scan.location}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground uppercase font-semibold">Time</p>
-                              <p className="text-sm text-foreground">
-                                {new Date(scan.timestamp).toLocaleTimeString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground uppercase font-semibold">Date</p>
-                              <p className="text-sm text-foreground">
-                                {new Date(scan.timestamp).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div className="flex justify-end">
-                              <span
-                                className={`text-xs px-3 py-1 rounded-full font-semibold ${
-                                  scan.status === 'success'
-                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                                }`}
-                              >
-                                {scan.status}
-                              </span>
-                            </div>
+              <SectionCard
+                title="Verification result"
+                description="The current record stays visible until you clear it."
+              >
+                {verificationResult ? (
+                  <div className="space-y-5">
+                    <div className="brand-panel-soft rounded-[1.75rem] border p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="brand-icon-chip rounded-2xl border p-3">
+                            {verificationResult.isValid ? (
+                              <CheckCircle2 className="h-5 w-5 text-blue-700" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-slate-700" />
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          <div>
+                            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">
+                              Scan status
+                            </p>
+                            <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                              {verificationResult.message}
+                            </h2>
+                          </div>
+                        </div>
+                        <StatusBadge
+                          label={verificationResult.isValid ? 'Valid pass' : 'Not cleared'}
+                          tone={
+                            verificationResult.isValid
+                              ? 'border-blue-200 bg-blue-50 text-blue-800'
+                              : 'border-slate-300 bg-slate-100 text-slate-800'
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {verificationResult.pass ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <DetailBlock
+                          label="Student"
+                          value={
+                            <span className="inline-flex items-center gap-2">
+                              <UserIcon className="h-4 w-4 text-slate-500" />
+                              {verificationResult.pass.student?.name || 'Unknown'}
+                            </span>
+                          }
+                        />
+                        <DetailBlock label="Matric no." value={verificationResult.pass.student?.matric || 'Not available'} />
+                        <DetailBlock
+                          label="Destination"
+                          value={
+                            <span className="inline-flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-slate-500" />
+                              {verificationResult.pass.destination}
+                            </span>
+                          }
+                        />
+                        <DetailBlock label="Pass type" value={verificationResult.pass.type} />
+                        <DetailBlock label="Departure" value={formatDateTime(verificationResult.pass.departureDate)} />
+                        <DetailBlock label="Return" value={formatDateTime(verificationResult.pass.expectedReturnDate)} />
+                      </div>
+                    ) : (
+                      <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/85 p-5 text-sm leading-7 text-slate-600">
+                        No active pass record was returned for this QR input.
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <Card className="border-border/30">
-                    <CardContent className="pt-6">
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <History className="w-12 h-12 text-muted-foreground/30 mb-3" />
-                        <p className="text-muted-foreground text-lg">No scan history yet</p>
-                        <p className="text-muted-foreground text-sm mt-1">Scans will appear here</p>
-                      </div>
+                  <EmptyState
+                    title="No scan result yet"
+                    description="Run a scan and the pass details will appear here with a clear validity decision."
+                  />
+                )}
+              </SectionCard>
+            </div>
+
+            <SectionCard
+              title="Gate checklist"
+              description="Keep the process consistent for every student approaching the gate."
+            >
+              <div className="grid gap-3 md:grid-cols-3">
+                {[
+                  'Scan the QR directly from the student pass view when possible.',
+                  'Confirm the student name, matric number, and destination before allowing movement.',
+                  'If the pass is not cleared, ask the student to resolve it with staff before exit.',
+                ].map((item, index) => (
+                  <Card key={item} className="brand-panel-soft border">
+                    <CardContent className="p-5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                        Step 0{index + 1}
+                      </p>
+                      <p className="mt-3 text-sm leading-7 text-slate-700">{item}</p>
                     </CardContent>
                   </Card>
-                )}
-              </TabsContent>
-            </Tabs>
+                ))}
+              </div>
+            </SectionCard>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-6">
+            {historyLoading ? (
+              <LoadingPanel label="Loading scan history..." />
+            ) : scanHistory.length ? (
+              <div className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
+                <SectionCard
+                  title="Latest scan"
+                  description="The newest verification stays pinned for quick review."
+                >
+                  {latestScan ? (
+                    <div className="brand-panel-soft rounded-[1.75rem] border p-5">
+                      <StatusBadge
+                        label={latestScan.status}
+                        tone={
+                          latestScan.status === 'success'
+                            ? 'border-blue-200 bg-blue-50 text-blue-800'
+                            : 'border-slate-300 bg-slate-100 text-slate-800'
+                        }
+                      />
+                      <p className="mt-4 font-mono text-sm text-slate-700">{latestScan.qrCode}</p>
+                      <div className="mt-5 grid gap-3">
+                        <DetailBlock label="Location" value={latestScan.location} />
+                        <DetailBlock label="Timestamp" value={formatDateTime(latestScan.timestamp)} />
+                      </div>
+                    </div>
+                  ) : null}
+                </SectionCard>
+
+                <SectionCard
+                  title="Recent history"
+                  description="Every logged scan appears here with its location and result."
+                >
+                  <div className="space-y-3">
+                    {scanHistory.map((scan) => (
+                      <div
+                        key={scan.id}
+                        className="flex flex-col gap-4 rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4 text-left transition hover:border-blue-200 hover:bg-white lg:flex-row lg:items-center lg:justify-between"
+                      >
+                        <div>
+                          <p className="font-mono text-sm text-slate-800">{scan.qrCode}</p>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {scan.location} • {formatDateTime(scan.timestamp)}
+                          </p>
+                        </div>
+                        <StatusBadge
+                          label={scan.status}
+                          tone={
+                            scan.status === 'success'
+                              ? 'border-blue-200 bg-blue-50 text-blue-800'
+                              : 'border-slate-300 bg-slate-100 text-slate-800'
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+              </div>
+            ) : (
+              <EmptyState
+                title="No scan history yet"
+                description="Once security verifies passes here, the recent history will appear with timestamps and location data."
+              />
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </DashboardShell>
   );
 }

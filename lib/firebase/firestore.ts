@@ -62,7 +62,10 @@ function mapEmbeddedUser(studentId: string, value?: unknown) {
     hostel: typeof data.hostel === "string" ? data.hostel : undefined,
     room: typeof data.room === "string" ? data.room : undefined,
     department: typeof data.department === "string" ? data.department : undefined,
+    faculty: typeof data.faculty === "string" ? data.faculty : undefined,
     level: typeof data.level === "string" ? data.level : undefined,
+    phone: typeof data.phone === "string" ? data.phone : undefined,
+    guardianPhone: typeof data.guardianPhone === "string" ? data.guardianPhone : undefined,
     photo: typeof data.photo === "string" ? data.photo : undefined,
     permissions: Array.isArray(data.permissions)
       ? data.permissions.filter((permission): permission is string => typeof permission === "string")
@@ -97,7 +100,10 @@ export function mapUser(id: string, value: UnknownRecord): User {
     hostel: typeof value.hostel === "string" ? value.hostel : undefined,
     room: typeof value.room === "string" ? value.room : undefined,
     department: typeof value.department === "string" ? value.department : undefined,
+    faculty: typeof value.faculty === "string" ? value.faculty : undefined,
     level: typeof value.level === "string" ? value.level : undefined,
+    phone: typeof value.phone === "string" ? value.phone : undefined,
+    guardianPhone: typeof value.guardianPhone === "string" ? value.guardianPhone : undefined,
     photo: typeof value.photo === "string" ? value.photo : undefined,
     permissions: Array.isArray(value.permissions)
       ? value.permissions.filter((permission): permission is string => typeof permission === "string")

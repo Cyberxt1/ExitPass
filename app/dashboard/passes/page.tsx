@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
+import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import {
   countPassesByStatus,
   formatDate,
@@ -48,7 +49,7 @@ const filters: Array<{ id: FilterId; label: string }> = [
 
 export default function PassesPage() {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [passes, setPasses] = useState<Pass[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [selectedPass, setSelectedPass] = useState<Pass | null>(null);
@@ -58,9 +59,14 @@ export default function PassesPage() {
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login');
+      navigate('/login');
+      return;
     }
-  }, [isLoading, router, user]);
+
+    if (!isLoading && user?.role !== 'student') {
+      navigate(getDefaultRouteForRole(user?.role));
+    }
+  }, [isLoading, navigate, user]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -126,6 +132,10 @@ export default function PassesPage() {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
 
+  if (user?.role !== 'student') {
+    return null;
+  }
+
   return (
     <DashboardShell title="My Passes" contentClassName="mx-auto max-w-7xl">
       <div className="space-y-6">
@@ -153,7 +163,7 @@ export default function PassesPage() {
                 description="Your digital pass stays readable, printable, and ready to verify."
               >
                 <div className="space-y-5">
-                  <div className="rounded-[2rem] border border-white/80 bg-[linear-gradient(135deg,rgba(255,122,24,0.12),rgba(89,179,255,0.1),rgba(255,255,255,0.97))] p-6">
+                  <div className="brand-panel-soft rounded-[2rem] border p-6">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -259,8 +269,8 @@ export default function PassesPage() {
               description="See what is approved, what is still moving through review, and what is ready to print for the gate."
               actions={
                 <Button
-                  onClick={() => router.push('/dashboard/request')}
-                  className="rounded-full bg-[linear-gradient(135deg,#ff7a18,#ff477e)] text-white hover:opacity-95"
+                  onClick={() => navigate('/dashboard/request')}
+                  className="brand-cta rounded-full"
                 >
                   Request another pass
                 </Button>
@@ -278,21 +288,21 @@ export default function PassesPage() {
                   value={activeCount}
                   description="Approved and currently valid."
                   icon={CheckCircle2}
-                  accentClassName="bg-[linear-gradient(135deg,rgba(51,200,143,0.22),rgba(255,255,255,0.88))]"
+                  accentClassName="brand-icon-chip"
                 />
                 <MetricCard
                   label="In progress"
                   value={passes.filter((pass) => ['pending', 'chaplaincy_required'].includes(pass.status)).length}
                   description="Still waiting on staff review."
                   icon={Clock3}
-                  accentClassName="bg-[linear-gradient(135deg,rgba(255,196,87,0.22),rgba(255,255,255,0.88))]"
+                  accentClassName="brand-icon-chip"
                 />
                 <MetricCard
                   label="Rejected"
                   value={countPassesByStatus(passes, 'rejected')}
                   description="Requests that need a new submission."
                   icon={XCircle}
-                  accentClassName="bg-[linear-gradient(135deg,rgba(244,114,182,0.18),rgba(255,255,255,0.88))]"
+                  accentClassName="brand-icon-chip"
                 />
               </div>
             </PageHero>
@@ -319,7 +329,7 @@ export default function PassesPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedPass(latestApprovedPass)}
-                      className="w-full rounded-[1.75rem] border border-white/70 bg-[linear-gradient(135deg,rgba(255,122,24,0.12),rgba(89,179,255,0.08),rgba(255,255,255,0.96))] p-5 text-left transition hover:border-slate-300"
+                      className="brand-panel-soft w-full rounded-[1.75rem] border p-5 text-left transition hover:border-slate-300"
                     >
                       <StatusBadge
                         label={getPassStatusMeta(latestApprovedPass).label}
@@ -401,7 +411,7 @@ export default function PassesPage() {
                 description="Submit your first request and your pass wallet will fill in with live status, history, and QR readiness."
                 action={
                   <Button
-                    onClick={() => router.push('/dashboard/request')}
+                    onClick={() => navigate('/dashboard/request')}
                     className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
                   >
                     Request a pass

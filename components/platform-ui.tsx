@@ -23,12 +23,12 @@ export function PageHero({
   return (
     <Card
       className={cn(
-        "overflow-hidden border-white/70 bg-white/80 shadow-[0_32px_110px_-55px_rgba(15,23,42,0.45)] backdrop-blur-xl",
+        "brand-panel overflow-hidden border backdrop-blur-xl",
         className,
       )}
     >
       <CardContent className="relative p-6 sm:p-8">
-        <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#ff7a18,#ff477e,#59b3ff,#33c88f)]" />
+        <div className="brand-topline absolute inset-x-0 top-0 h-1" />
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             {eyebrow ? (
@@ -65,7 +65,7 @@ export function MetricCard({
   accentClassName?: string;
 }) {
   return (
-    <Card className="border-white/70 bg-white/78 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.35)]">
+    <Card className="brand-panel border">
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -76,7 +76,7 @@ export function MetricCard({
           </div>
           <div
             className={cn(
-              "rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,122,24,0.12),rgba(255,255,255,0.88))] p-3",
+              "brand-icon-chip rounded-2xl border p-3",
               accentClassName,
             )}
           >
@@ -113,7 +113,7 @@ export function StatusBadge({
 
 export function LoadingPanel({ label }: { label: string }) {
   return (
-    <Card className="border-white/70 bg-white/76">
+    <Card className="brand-panel-soft border">
       <CardContent className="flex min-h-40 items-center justify-center p-8 text-sm text-slate-500">
         {label}
       </CardContent>
@@ -131,7 +131,7 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <Card className="border-white/70 bg-white/76 shadow-[0_24px_80px_-55px_rgba(15,23,42,0.35)]">
+    <Card className="brand-panel border">
       <CardContent className="flex min-h-56 flex-col items-center justify-center p-8 text-center">
         <div className="max-w-md">
           <p className="text-xl font-semibold text-slate-950">{title}</p>
@@ -153,7 +153,7 @@ export function DetailBlock({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-[1.5rem] border border-white/70 bg-slate-50/80 p-4", className)}>
+    <div className={cn("brand-panel-soft rounded-[1.5rem] border p-4", className)}>
       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
       <div className="mt-2 text-sm leading-6 text-slate-900">{value}</div>
     </div>
@@ -174,7 +174,7 @@ export function SectionCard({
   className?: string;
 }) {
   return (
-    <Card className={cn("border-white/70 bg-white/80 shadow-[0_24px_80px_-55px_rgba(15,23,42,0.35)]", className)}>
+    <Card className={cn("brand-panel border", className)}>
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle className="text-xl font-semibold text-slate-950">{title}</CardTitle>

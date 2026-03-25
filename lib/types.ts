@@ -30,7 +30,10 @@ export interface User {
   hostel?: string;
   room?: string;
   department?: string;
+  faculty?: string;
   level?: string;
+  phone?: string;
+  guardianPhone?: string;
   photo?: string;
   permissions?: string[];
   createdAt?: ISODateString;
@@ -203,9 +206,12 @@ export interface StudentSignupInput {
   email: string;
   matric: string;
   department: string;
+  faculty: string;
   level: string;
   hostel: string;
   room: string;
+  phone: string;
+  guardianPhone: string;
   password: string;
 }
 
@@ -218,4 +224,12 @@ export interface StudentDetails extends User {
   totalRequests: number;
   approvedPasses: number;
   passHistory: Pass[];
+}
+
+export interface StudentAccessLookup {
+  exists: boolean;
+  user: Pick<
+    User,
+    "id" | "name" | "email" | "matric" | "department" | "faculty" | "level" | "hostel" | "room"
+  > | null;
 }

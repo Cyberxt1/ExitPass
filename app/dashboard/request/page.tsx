@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
+import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import { formatDateTime, getPassTypeLabel } from '@/lib/platform';
 import type { PassType } from '@/lib/types';
 
@@ -55,7 +56,7 @@ function todayDate() {
 
 export default function RequestPassPage() {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -71,9 +72,9 @@ export default function RequestPassPage() {
 
   useEffect(() => {
     if (!isLoading && user?.role !== 'student') {
-      router.push('/admin-dashboard');
+      navigate(getDefaultRouteForRole(user?.role));
     }
-  }, [user?.role, isLoading, router]);
+  }, [user?.role, isLoading, navigate]);
 
   const departureDateTime = useMemo(
     () => new Date(`${formData.departureDate}T${formData.departureTime}`),
@@ -124,7 +125,7 @@ export default function RequestPassPage() {
 
       setSubmitted(true);
       window.setTimeout(() => {
-        router.push('/dashboard');
+        navigate('/dashboard');
       }, 1800);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to submit request.');
@@ -154,7 +155,7 @@ export default function RequestPassPage() {
             </p>
             <div className="mt-6 flex justify-center">
               <Button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => navigate('/dashboard')}
                 className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
               >
                 Return to dashboard
@@ -176,7 +177,7 @@ export default function RequestPassPage() {
           actions={
             <Button
               variant="outline"
-              onClick={() => router.back()}
+              onClick={() => navigate(-1)}
               className="rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -201,7 +202,7 @@ export default function RequestPassPage() {
                       onClick={() => setFormData((current) => ({ ...current, type: type.value }))}
                       className={`rounded-[1.5rem] border p-4 text-left transition ${
                         formData.type === type.value
-                          ? 'border-transparent bg-[linear-gradient(135deg,rgba(255,122,24,0.14),rgba(255,71,126,0.14),rgba(255,255,255,0.96))] shadow-[0_18px_40px_-28px_rgba(255,71,126,0.45)]'
+                          ? 'brand-selected'
                           : 'border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-white'
                       }`}
                     >
@@ -316,7 +317,7 @@ export default function RequestPassPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting || Boolean(validationMessage)}
-                  className="h-12 flex-1 rounded-full bg-[linear-gradient(135deg,#ff7a18,#ff477e)] text-white hover:opacity-95"
+                  className="brand-cta h-12 flex-1 rounded-full"
                 >
                   {isSubmitting ? (
                     <>
@@ -330,7 +331,7 @@ export default function RequestPassPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.back()}
+                  onClick={() => navigate(-1)}
                   className="h-12 rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
                 >
                   Cancel
@@ -345,7 +346,7 @@ export default function RequestPassPage() {
               description="Review exactly what staff will see before you submit."
             >
               <div className="space-y-4">
-                <div className="rounded-[1.75rem] border border-white/70 bg-[linear-gradient(135deg,rgba(255,122,24,0.12),rgba(89,179,255,0.08),rgba(255,255,255,0.96))] p-5">
+                <div className="brand-panel-soft rounded-[1.75rem] border p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
@@ -355,7 +356,7 @@ export default function RequestPassPage() {
                         {getPassTypeLabel(formData.type)}
                       </p>
                     </div>
-                    <StatusBadge label="Ready to review" tone="border-sky-200 bg-sky-50 text-sky-700" />
+                    <StatusBadge label="Ready to review" tone="border-blue-200 bg-blue-50 text-blue-800" />
                   </div>
                   <p className="mt-4 text-sm leading-7 text-slate-600">
                     A clear request moves faster through chaplaincy and hall admin approval.

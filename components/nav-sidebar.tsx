@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
   Home,
@@ -69,20 +69,20 @@ interface NavSidebarProps {
 
 export function NavSidebar({ onItemClick }: NavSidebarProps) {
   const { user, logout } = useAuth();
-  const pathname = usePathname();
-  const router = useRouter();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
 
-  const availableItems = navItems.filter((item) => item.roles.includes(user?.role || ''));
+  const availableItems = navItems.filter((item) => (user ? item.roles.includes(user.role) : false));
 
   const handleLogout = () => {
     void logout().finally(() => {
-      router.push('/login');
+      navigate('/login');
     });
   };
 
   return (
     <nav className="flex h-full flex-col gap-4 p-4">
-      <div className="rounded-[1.75rem] border border-white/70 bg-[linear-gradient(135deg,rgba(255,122,24,0.12),rgba(89,179,255,0.08),rgba(255,255,255,0.92))] p-4">
+      <div className="brand-panel rounded-[1.75rem] border p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -93,7 +93,7 @@ export function NavSidebar({ onItemClick }: NavSidebarProps) {
               {user?.name || 'Signed in user'}
             </p>
           </div>
-          <div className="rounded-2xl border border-white/80 bg-white/80 p-3 text-slate-900">
+          <div className="brand-icon-chip rounded-2xl border p-3 text-slate-900">
             <Sparkles className="h-5 w-5" />
           </div>
         </div>
@@ -110,11 +110,11 @@ export function NavSidebar({ onItemClick }: NavSidebarProps) {
               className={cn(
                 'w-full justify-start gap-3 rounded-[1.25rem] px-4 py-6 text-base',
                 isActive
-                  ? 'bg-[linear-gradient(135deg,#ff7a18,#ff477e)] text-white shadow-[0_20px_40px_-24px_rgba(255,71,126,0.85)] hover:opacity-95'
+                  ? 'brand-cta hover:opacity-95'
                   : 'text-slate-700 hover:bg-white/85 hover:text-slate-950',
               )}
               onClick={() => {
-                router.push(item.href);
+                navigate(item.href);
                 onItemClick?.();
               }}
             >
@@ -125,7 +125,7 @@ export function NavSidebar({ onItemClick }: NavSidebarProps) {
         })}
       </div>
 
-      <div className="rounded-[1.5rem] border border-white/70 bg-white/76 p-4 text-sm text-slate-600">
+      <div className="brand-panel-soft rounded-[1.5rem] border p-4 text-sm text-slate-600">
         <p className="font-semibold text-slate-900">Always live</p>
         <p className="mt-2 leading-6">
           Requests, approvals, and scans stay in one shared flow so each role sees the same truth.

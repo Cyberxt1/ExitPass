@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from '@/components/app-link';
 
 import { MarketingShell } from '@/components/marketing-shell';
 import { Button } from '@/components/ui/button';

@@ -32,11 +32,15 @@ type UserProfile = {
   name: string;
   email: string;
   matric: string;
+  matricNormalized?: string;
   role: UserRole;
   hostel?: string;
   room?: string;
   department?: string;
+  faculty?: string;
   level?: string;
+  phone?: string;
+  guardianPhone?: string;
   photo?: string;
   permissions?: string[];
   disabled?: boolean;
@@ -104,6 +108,10 @@ function serializeForClient<T>(value: T): T {
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
+}
+
+function normalizeMatric(value: string) {
+  return value.trim().replace(/\s+/g, '').toUpperCase();
 }
 
 function slugify(value: string) {
@@ -246,9 +254,50 @@ function toStudentSnapshot(profile: Awaited<ReturnType<typeof getUserProfile>>) 
     hostel: profile.hostel || '',
     room: profile.room || '',
     department: profile.department || '',
+    faculty: profile.faculty || '',
     level: profile.level || '',
+    phone: profile.phone || '',
+    guardianPhone: profile.guardianPhone || '',
     photo: profile.photo || '',
   };
+}
+
+async function findStudentByMatric(rawMatric: string) {
+  const matric = normalizeMatric(rawMatric);
+
+  if (!matric) {
+    return null;
+  }
+
+  const normalizedSnapshot = await db
+    .collection('users')
+    .where('role', '==', 'student')
+    .where('matricNormalized', '==', matric)
+    .limit(1)
+    .get();
+
+  if (!normalizedSnapshot.empty) {
+    return normalizedSnapshot.docs[0];
+  }
+
+  const exactSnapshot = await db
+    .collection('users')
+    .where('role', '==', 'student')
+    .where('matric', '==', rawMatric.trim())
+    .limit(1)
+    .get();
+
+  if (!exactSnapshot.empty) {
+    return exactSnapshot.docs[0];
+  }
+
+  const fallbackSnapshot = await db.collection('users').where('role', '==', 'student').get();
+
+  return (
+    fallbackSnapshot.docs.find(
+      (doc) => normalizeMatric(String((doc.data() as UserProfile).matric || '')) === matric,
+    ) || null
+  );
 }
 
 async function createNotification(userId: string, title: string, message: string, type = 'info') {
@@ -407,23 +456,68 @@ export const validateStudentSignupEmail = onCall(callableOptions, async (request
   };
 });
 
+export const lookupStudentAccess = onCall(callableOptions, async (request) => {
+  const payload = request.data as Record<string, unknown>;
+  const matric = normalizeMatric(String(payload.matric || ''));
+
+  if (!matric) {
+    throw new HttpsError('invalid-argument', 'matric is required.');
+  }
+
+  const snapshot = await findStudentByMatric(matric);
+
+  if (!snapshot) {
+    return {
+      exists: false,
+      user: null,
+    };
+  }
+
+  const data = snapshot.data() as UserProfile;
+
+  return {
+    exists: true,
+    user: {
+      id: snapshot.id,
+      name: data.name || 'Student',
+      email: data.email || '',
+      matric: data.matric || matric,
+      department: data.department || '',
+      faculty: data.faculty || '',
+      level: data.level || '',
+      hostel: data.hostel || '',
+      room: data.room || '',
+    },
+  };
+});
+
 export const createStudentAccount = onCall(callableOptions, async (request) => {
   const payload = request.data as Record<string, unknown>;
   const name = String(payload.name || '').trim();
   const email = normalizeEmail(String(payload.email || ''));
   const matric = String(payload.matric || '').trim();
+  const matricNormalized = normalizeMatric(matric);
   const department = String(payload.department || '').trim();
+  const faculty = String(payload.faculty || '').trim();
   const level = String(payload.level || '').trim();
   const hostel = String(payload.hostel || '').trim();
   const room = String(payload.room || '').trim();
+  const phone = String(payload.phone || '').trim();
+  const guardianPhone = String(payload.guardianPhone || '').trim();
   const password = String(payload.password || '');
 
-  if (!name || !email || !matric || !department || !level || !hostel || !room) {
+  if (!name || !email || !matricNormalized || !department || !faculty || !level || !hostel || !room || !phone || !guardianPhone) {
     throw new HttpsError('invalid-argument', 'All student profile fields are required.');
   }
 
   if (password.length < 8) {
     throw new HttpsError('invalid-argument', 'Password must be at least 8 characters long.');
+  }
+
+  const existingStudent = await findStudentByMatric(matricNormalized);
+
+  if (existingStudent) {
+    throw new HttpsError('already-exists', 'A student account already exists for that ID.');
   }
 
   await assertStudentSignupEmailAllowed(email);
@@ -440,12 +534,16 @@ export const createStudentAccount = onCall(callableOptions, async (request) => {
   const studentRecord = {
     name,
     email,
-    matric,
+    matric: matricNormalized,
+    matricNormalized,
     role: 'student',
     department,
+    faculty,
     level,
     hostel,
     room,
+    phone,
+    guardianPhone,
     permissions: [],
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

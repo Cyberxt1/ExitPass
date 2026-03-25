@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   Building2,
@@ -9,6 +9,7 @@ import {
   IdCard,
   LogOut,
   Mail,
+  Phone,
   ShieldCheck,
   User,
 } from 'lucide-react';
@@ -25,20 +26,26 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
+import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import { getRoleLabel } from '@/lib/platform';
 import type { Pass } from '@/lib/types';
 
 export default function ProfilePage() {
   const { user, logout, isLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [passes, setPasses] = useState<Pass[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login');
+      navigate('/login');
+      return;
     }
-  }, [isLoading, router, user]);
+
+    if (!isLoading && user?.role !== 'student') {
+      navigate(getDefaultRouteForRole(user?.role));
+    }
+  }, [isLoading, navigate, user]);
 
   useEffect(() => {
     if (!user?.id || user.role !== 'student') {
@@ -54,7 +61,7 @@ export default function ProfilePage() {
 
   const handleLogout = () => {
     void logout().finally(() => {
-      router.push('/login');
+      navigate('/login');
     });
   };
 
@@ -72,6 +79,10 @@ export default function ProfilePage() {
   }
 
   if (!user) {
+    return null;
+  }
+
+  if (user.role !== 'student') {
     return null;
   }
 
@@ -104,21 +115,21 @@ export default function ProfilePage() {
               value={user.matric || 'Pending'}
               description="Your platform identity code."
               icon={IdCard}
-              accentClassName="bg-[linear-gradient(135deg,rgba(89,179,255,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Approved"
               value={dataLoading ? '...' : passSummary.approved}
               description="Passes cleared for use."
               icon={BookOpen}
-              accentClassName="bg-[linear-gradient(135deg,rgba(51,200,143,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Open requests"
               value={dataLoading ? '...' : passSummary.pending}
               description="Requests still under review."
               icon={User}
-              accentClassName="bg-[linear-gradient(135deg,rgba(255,196,87,0.22),rgba(255,255,255,0.88))]"
+              accentClassName="brand-icon-chip"
             />
           </div>
         </PageHero>
@@ -145,6 +156,10 @@ export default function ProfilePage() {
                       }
                     />
                     <DetailBlock
+                      label="Faculty"
+                      value={user.faculty || 'Not set'}
+                    />
+                    <DetailBlock
                       label="Level"
                       value={user.level || 'Not set'}
                     />
@@ -158,13 +173,26 @@ export default function ProfilePage() {
                       }
                     />
                     <DetailBlock
-                      label="Room"
+                      label="Room or hostel number"
                       value={
                         <span className="inline-flex items-center gap-2">
                           <DoorOpen className="h-4 w-4 text-slate-500" />
                           {user.room || 'Not set'}
                         </span>
                       }
+                    />
+                    <DetailBlock
+                      label="Phone number"
+                      value={
+                        <span className="inline-flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-slate-500" />
+                          {user.phone || 'Not set'}
+                        </span>
+                      }
+                    />
+                    <DetailBlock
+                      label="Guardian phone"
+                      value={user.guardianPhone || 'Not set'}
                     />
                   </>
                 )}
@@ -201,7 +229,7 @@ export default function ProfilePage() {
                     </p>
                     <Button
                       variant="outline"
-                      onClick={() => router.push('/forgot-password')}
+                      onClick={() => navigate('/forgot-password')}
                       className="mt-4 rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
                     >
                       <Mail className="mr-2 h-4 w-4" />

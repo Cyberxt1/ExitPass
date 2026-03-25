@@ -26,18 +26,18 @@ const baseStatusMeta: Record<
 > = {
   pending: {
     label: "Pending",
-    tone: "text-amber-800",
-    surface: "border-amber-200 bg-amber-50",
+    tone: "text-blue-800",
+    surface: "border-blue-200 bg-blue-50",
   },
   approved: {
     label: "Approved",
-    tone: "text-emerald-800",
-    surface: "border-emerald-200 bg-emerald-50",
+    tone: "text-white",
+    surface: "border-slate-950 bg-slate-950",
   },
   rejected: {
     label: "Rejected",
-    tone: "text-rose-800",
-    surface: "border-rose-200 bg-rose-50",
+    tone: "text-slate-700",
+    surface: "border-slate-300 bg-white",
   },
   expired: {
     label: "Expired",
@@ -46,13 +46,13 @@ const baseStatusMeta: Record<
   },
   completed: {
     label: "Completed",
-    tone: "text-sky-800",
-    surface: "border-sky-200 bg-sky-50",
+    tone: "text-blue-900",
+    surface: "border-blue-200 bg-blue-100",
   },
   chaplaincy_required: {
     label: "Awaiting Chaplaincy",
-    tone: "text-violet-800",
-    surface: "border-violet-200 bg-violet-50",
+    tone: "text-blue-900",
+    surface: "border-blue-200 bg-blue-50",
   },
 };
 
@@ -72,8 +72,8 @@ export function getPassStatusMeta(pass: PassLike) {
   if (pass.status === "pending" && !pass.hallAdminApproval) {
     return {
       label: "Awaiting Hall Admin",
-      tone: "text-amber-800",
-      surface: "border-amber-200 bg-amber-50",
+      tone: "text-blue-950",
+      surface: "border-blue-300 bg-blue-100",
     };
   }
 

@@ -22,17 +22,17 @@ export function DashboardShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,134,85,0.2),_transparent_22%),radial-gradient(circle_at_top_right,_rgba(86,181,255,0.18),_transparent_26%),linear-gradient(180deg,_#fff9f0_0%,_#fffdfb_44%,_#eef8ff_100%)]">
+    <div className="brand-dashboard-shell min-h-screen overflow-x-hidden">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-5rem] top-28 h-56 w-56 rounded-full bg-primary/15 blur-3xl" />
-        <div className="absolute right-[-7rem] top-16 h-72 w-72 rounded-full bg-secondary/12 blur-3xl" />
-        <div className="absolute inset-x-[-8%] top-24 h-px rotate-[7deg] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+        <div className="brand-glow-primary absolute left-[-5rem] top-28 h-56 w-56 rounded-full blur-3xl" />
+        <div className="brand-glow-secondary absolute right-[-7rem] top-16 h-72 w-72 rounded-full blur-3xl" />
+        <div className="brand-line absolute inset-x-[-8%] top-24 h-px rotate-[7deg]" />
       </div>
       <DashboardHeader title={title} />
 
       <div className="relative mx-auto flex w-full max-w-[1800px] gap-0 px-0 lg:gap-6 lg:px-4 xl:px-6">
         <aside className="hidden lg:block lg:w-72 lg:shrink-0">
-          <div className="sticky top-24 h-[calc(100vh-7rem)] overflow-hidden rounded-[2rem] border border-white/80 bg-white/82 shadow-[0_28px_90px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl">
+          <div className="brand-panel sticky top-24 h-[calc(100vh-7rem)] overflow-hidden rounded-[2rem] border backdrop-blur-xl">
             <div className="h-full overflow-y-auto">
               <NavSidebar />
             </div>
@@ -53,8 +53,8 @@ export function DashboardShell({
               className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px]"
               onClick={() => setSidebarOpen(false)}
             />
-            <aside className="fixed inset-y-4 left-4 right-12 z-50 max-w-sm overflow-hidden rounded-[2rem] border border-white/80 bg-white/92 shadow-[0_30px_80px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl">
-              <div className="flex items-center justify-between border-b border-slate-200/70 px-4 py-3">
+            <aside className="brand-panel fixed inset-y-4 left-4 right-12 z-50 max-w-sm overflow-hidden rounded-[2rem] border backdrop-blur-xl">
+              <div className="flex items-center justify-between border-b border-blue-100/80 px-4 py-3">
                 <p className="text-sm font-semibold text-slate-900">Navigation</p>
                 <Button
                   variant="ghost"
@@ -75,7 +75,7 @@ export function DashboardShell({
         <Button
           type="button"
           size="icon"
-          className="fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full border border-white/80 bg-white/92 text-slate-950 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl hover:bg-white"
+          className="brand-panel fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full border text-slate-950 backdrop-blur-xl hover:bg-white"
           onClick={() => setSidebarOpen((current) => !current)}
         >
           {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}

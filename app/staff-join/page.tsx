@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
+import { Link } from "@/components/app-link";
 import { MarketingShell } from "@/components/marketing-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +23,8 @@ export default function StaffJoinPage() {
 }
 
 function StaffJoinContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const { login } = useAuth();
 
@@ -91,7 +91,7 @@ function StaffJoinContent() {
       });
 
       const profile = await login(formData.email, formData.password);
-      router.push(getDefaultRouteForRole(profile.role || createdUser.role));
+      navigate(getDefaultRouteForRole(profile.role || createdUser.role));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to create the staff account.");
     } finally {
