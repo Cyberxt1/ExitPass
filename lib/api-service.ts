@@ -1,0 +1,877 @@
+import {
+  Timestamp,
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  writeBatch,
+  where,
+} from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+
+import { getFirebaseAuth, getFirebaseDb, getFirebaseFunctions } from "./firebase/client";
+import {
+  getFirebaseConfigurationError,
+  isFirebaseConfigured,
+} from "./firebase/config";
+import {
+  mapAnnouncement,
+  mapHostel,
+  mapNotification,
+  mapPass,
+  mapPassRequest,
+  mapPassVerificationResult,
+  mapScanLog,
+  mapStaffInvite,
+  mapUser,
+  requestToPassRecord,
+  sortByCreatedAtDesc,
+  toIsoString,
+} from "./firebase/firestore";
+import type {
+  AnalyticsSummary,
+  Announcement,
+  CreateAdminInput,
+  CreateStaffInviteInput,
+  CreatedAdminResult,
+  Notification,
+  Pass,
+  PassRequest,
+  PassVerificationResult,
+  RegisterStaffInput,
+  ScanLog,
+  SubmitPassRequestInput,
+  User,
+} from "./types";
+import { staffPortals } from "./staff-portals";
+
+function assertFirebaseReady() {
+  const configurationError = getFirebaseConfigurationError();
+
+  if (configurationError) {
+    throw new Error(configurationError);
+  }
+}
+
+function getReadableFunctionsError(error: unknown, functionName: string) {
+  const code =
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof (error as { code?: unknown }).code === "string"
+      ? String((error as { code: string }).code)
+      : "";
+
+  const message =
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+      ? String((error as { message: string }).message)
+      : "";
+
+  if (message && message !== code && message !== "internal") {
+    return message;
+  }
+
+  switch (code) {
+    case "functions/unauthenticated":
+    case "unauthenticated":
+      return "You need to sign in again before using this action.";
+    case "functions/permission-denied":
+    case "permission-denied":
+      return "You do not have permission to perform this action.";
+    case "functions/invalid-argument":
+    case "invalid-argument":
+      return "Some of the details sent to the server were invalid.";
+    case "functions/not-found":
+    case "not-found":
+      return "The requested backend action could not be found.";
+    case "functions/already-exists":
+    case "already-exists":
+      return "That record already exists.";
+    case "functions/failed-precondition":
+    case "failed-precondition":
+      return "The request could not be completed because the server is not ready for it yet.";
+    case "functions/unavailable":
+    case "unavailable":
+      return "The backend is temporarily unavailable. Please try again in a moment.";
+    case "functions/internal":
+    case "internal":
+      return `The ${functionName} backend is failing before it responds. If you're on localhost, redeploy Firebase Functions so the live callable endpoint includes the latest CORS-enabled version.`;
+    default:
+      return message || `The ${functionName} request failed.`;
+  }
+}
+
+async function callFirebaseFunction<TResponse, TPayload = Record<string, unknown>>(
+  name: string,
+  payload: TPayload,
+) {
+  assertFirebaseReady();
+
+  try {
+    const callable = httpsCallable<TPayload, TResponse>(getFirebaseFunctions(), name);
+    const response = await callable(payload);
+    return response.data;
+  } catch (error) {
+    throw new Error(getReadableFunctionsError(error, name));
+  }
+}
+
+async function getCurrentSignedInProfile() {
+  const authUser = getFirebaseAuth().currentUser;
+
+  if (!authUser) {
+    throw new Error("You need to sign in again before using this action.");
+  }
+
+  const snapshot = await getDoc(doc(getFirebaseDb(), "users", authUser.uid));
+
+  if (!snapshot.exists()) {
+    throw new Error("Your user profile could not be loaded.");
+  }
+
+  return mapUser(snapshot.id, snapshot.data());
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getLeadRoleForEmail(email: string): User["role"] | null {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (normalizedEmail === staffPortals.admin.leadEmail) {
+    return "super_admin";
+  }
+
+  if (normalizedEmail === staffPortals.security.leadEmail) {
+    return "security";
+  }
+
+  if (normalizedEmail === staffPortals.chaplaincy.leadEmail) {
+    return "chaplaincy";
+  }
+
+  return null;
+}
+
+export const apiService = {
+  async submitPassRequest(
+    request: Omit<SubmitPassRequestInput, "studentId"> & { studentId: string },
+  ) {
+    const student = await getCurrentSignedInProfile();
+
+    if (student.role !== "student" || student.id !== request.studentId) {
+      throw new Error("Only a signed-in student can submit a pass request.");
+    }
+
+    const requestRef = await addDoc(collection(getFirebaseDb(), "passRequests"), {
+      studentId: request.studentId,
+      studentSnapshot: {
+        id: student.id,
+        name: student.name,
+        email: student.email,
+        matric: student.matric,
+        role: student.role,
+        hostel: student.hostel || "",
+        room: student.room || "",
+        department: student.department || "",
+        level: student.level || "",
+        photo: student.photo || "",
+      },
+      type: request.type,
+      destination: request.destination,
+      reason: request.reason,
+      departureDate: Timestamp.fromDate(new Date(request.departureDate)),
+      expectedReturnDate: Timestamp.fromDate(new Date(request.expectedReturnDate)),
+      status: "chaplaincy_required",
+      currentStage: "chaplaincy",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      createdBy: request.studentId,
+    });
+
+    const createdRequest = await getDoc(requestRef);
+    return mapPassRequest(createdRequest.id, createdRequest.data() || {});
+  },
+
+  async getPassRequests(studentId?: string) {
+    assertFirebaseReady();
+
+    const requestsRef = collection(getFirebaseDb(), "passRequests");
+    const constraints = studentId ? [where("studentId", "==", studentId)] : [];
+    const snapshot = await getDocs(query(requestsRef, ...constraints));
+
+    return sortByCreatedAtDesc(
+      snapshot.docs.map((item) => mapPassRequest(item.id, item.data())),
+    );
+  },
+
+  async getPendingRequests(currentUser?: User | null) {
+    const requests = await this.getPassRequests();
+
+    if (!currentUser) {
+      return requests.filter((request) =>
+        ["pending", "chaplaincy_required"].includes(request.status),
+      );
+    }
+
+    if (currentUser.role === "chaplaincy") {
+      return requests.filter(
+        (request) =>
+          request.status === "chaplaincy_required" ||
+          (request.status === "pending" && !request.chaplainApproval),
+      );
+    }
+
+    if (currentUser.role === "hall_admin") {
+      return requests.filter((request) => {
+        if (request.status !== "pending" || !request.chaplainApproval) {
+          return false;
+        }
+
+        if (!currentUser.hostel) {
+          return true;
+        }
+
+        return request.student?.hostel?.toLowerCase() === currentUser.hostel.toLowerCase();
+      });
+    }
+
+    if (currentUser.role === "super_admin") {
+      return requests.filter((request) =>
+        ["pending", "chaplaincy_required"].includes(request.status),
+      );
+    }
+
+    return [];
+  },
+
+  async approvePassRequest(requestId: string) {
+    const actor = await getCurrentSignedInProfile();
+    const requestRef = doc(getFirebaseDb(), "passRequests", requestId);
+    const requestSnapshot = await getDoc(requestRef);
+
+    if (!requestSnapshot.exists()) {
+      throw new Error("Pass request not found.");
+    }
+
+    const requestRecord = mapPassRequest(requestSnapshot.id, requestSnapshot.data());
+    const batch = writeBatch(getFirebaseDb());
+
+    if (
+      (requestRecord.currentStage === "chaplaincy" || requestRecord.status === "chaplaincy_required") &&
+      (actor.role === "chaplaincy" || actor.role === "super_admin")
+    ) {
+      batch.update(requestRef, {
+        status: "pending",
+        currentStage: "hall_admin",
+        chaplainApproval: {
+          approvedBy: actor.id,
+          approverRole: actor.role,
+          approvedAt: serverTimestamp(),
+          status: "approved",
+        },
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+    } else if (
+      requestRecord.currentStage === "hall_admin" &&
+      (actor.role === "hall_admin" || actor.role === "super_admin")
+    ) {
+      if (
+        actor.role === "hall_admin" &&
+        actor.hostel &&
+        requestRecord.student?.hostel &&
+        actor.hostel.toLowerCase() !== requestRecord.student.hostel.toLowerCase()
+      ) {
+        throw new Error("You can only approve requests from students in your hostel.");
+      }
+
+      batch.update(requestRef, {
+        status: "approved",
+        currentStage: "completed",
+        approvedAt: serverTimestamp(),
+        hallAdminApproval: {
+          approvedBy: actor.id,
+          approverRole: actor.role,
+          approvedAt: serverTimestamp(),
+          status: "approved",
+        },
+        updatedAt: serverTimestamp(),
+      });
+      batch.set(doc(getFirebaseDb(), "passes", requestId), {
+        requestId,
+        studentId: requestRecord.studentId,
+        studentSnapshot: requestSnapshot.data()?.studentSnapshot,
+        type: requestRecord.type,
+        destination: requestRecord.destination,
+        reason: requestRecord.reason,
+        departureDate: Timestamp.fromDate(new Date(requestRecord.departureDate)),
+        expectedReturnDate: Timestamp.fromDate(new Date(requestRecord.expectedReturnDate)),
+        status: "approved",
+        currentStage: "completed",
+        qrCode: `PASS_${requestId}_${Math.random().toString(16).slice(2, 14)}`,
+        hallAdminApproval: {
+          approvedBy: actor.id,
+          approverRole: actor.role,
+          approvedAt: serverTimestamp(),
+          status: "approved",
+        },
+        chaplainApproval: requestSnapshot.data()?.chaplainApproval || null,
+        createdAt: requestSnapshot.data()?.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+    } else {
+      throw new Error("You do not have access to approve this request at its current stage.");
+    }
+
+    const updatedRequest = await getDoc(requestRef);
+    return mapPassRequest(updatedRequest.id, updatedRequest.data() || {});
+  },
+
+  async rejectPassRequest(requestId: string, reason: string) {
+    const actor = await getCurrentSignedInProfile();
+    const requestRef = doc(getFirebaseDb(), "passRequests", requestId);
+    const requestSnapshot = await getDoc(requestRef);
+
+    if (!requestSnapshot.exists()) {
+      throw new Error("Pass request not found.");
+    }
+
+    const requestRecord = mapPassRequest(requestSnapshot.id, requestSnapshot.data());
+    const stage = requestRecord.currentStage || "chaplaincy";
+
+    if (
+      stage === "chaplaincy" &&
+      actor.role !== "chaplaincy" &&
+      actor.role !== "super_admin"
+    ) {
+      throw new Error("Only chapel can deny this request at this stage.");
+    }
+
+    if (stage === "hall_admin" && actor.role !== "hall_admin" && actor.role !== "super_admin") {
+      throw new Error("Only a hall admin can deny this request at this stage.");
+    }
+
+    if (
+      actor.role === "hall_admin" &&
+      actor.hostel &&
+      requestRecord.student?.hostel &&
+      actor.hostel.toLowerCase() !== requestRecord.student.hostel.toLowerCase()
+    ) {
+      throw new Error("You can only manage requests from students in your hostel.");
+    }
+
+    await updateDoc(requestRef, {
+      status: "rejected",
+      currentStage: "completed",
+      rejectionReason: reason,
+      updatedAt: serverTimestamp(),
+      ...(stage === "chaplaincy"
+        ? {
+            chaplainApproval: {
+              approvedBy: actor.id,
+              approverRole: actor.role,
+              approvedAt: serverTimestamp(),
+              status: "rejected",
+              reason,
+            },
+          }
+        : {
+            hallAdminApproval: {
+              approvedBy: actor.id,
+              approverRole: actor.role,
+              approvedAt: serverTimestamp(),
+              status: "rejected",
+              reason,
+            },
+          }),
+    });
+
+    const updatedRequest = await getDoc(requestRef);
+    return mapPassRequest(updatedRequest.id, updatedRequest.data() || {});
+  },
+
+  async getStudentPasses(studentId: string) {
+    assertFirebaseReady();
+
+    const [passesSnapshot, requestsSnapshot] = await Promise.all([
+      getDocs(query(collection(getFirebaseDb(), "passes"), where("studentId", "==", studentId))),
+      getDocs(
+        query(collection(getFirebaseDb(), "passRequests"), where("studentId", "==", studentId)),
+      ),
+    ]);
+
+    const passes = passesSnapshot.docs.map((item) => mapPass(item.id, item.data()));
+    const requests = requestsSnapshot.docs.map((item) =>
+      requestToPassRecord(mapPassRequest(item.id, item.data())),
+    );
+
+    const byRequestId = new Map<string, Pass>();
+
+    for (const pass of passes) {
+      if (pass.requestId) {
+        byRequestId.set(pass.requestId, pass);
+      }
+    }
+
+    const combined = [
+      ...passes,
+      ...requests.filter((request) => !byRequestId.has(request.requestId || request.id)),
+    ];
+
+    return sortByCreatedAtDesc(combined);
+  },
+
+  async getActiveStudentPasses(studentId: string) {
+    const passes = await this.getStudentPasses(studentId);
+    const now = Date.now();
+
+    return passes.filter((pass) => {
+      if (pass.status !== "approved") {
+        return false;
+      }
+
+      const departure = new Date(pass.departureDate).getTime();
+      const expectedReturn = new Date(pass.expectedReturnDate).getTime();
+
+      return departure <= now && expectedReturn >= now;
+    });
+  },
+
+  async getAllPasses() {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(collection(getFirebaseDb(), "passes"));
+    return sortByCreatedAtDesc(snapshot.docs.map((item) => mapPass(item.id, item.data())));
+  },
+
+  async getAllStudents() {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(
+      query(collection(getFirebaseDb(), "users"), where("role", "==", "student")),
+    );
+
+    return snapshot.docs.map((item) => mapUser(item.id, item.data()));
+  },
+
+  async getStudentDetails(studentId: string) {
+    assertFirebaseReady();
+
+    const [studentSnapshot, requestSnapshot, passesSnapshot] = await Promise.all([
+      getDoc(doc(getFirebaseDb(), "users", studentId)),
+      getDocs(query(collection(getFirebaseDb(), "passRequests"), where("studentId", "==", studentId))),
+      getDocs(query(collection(getFirebaseDb(), "passes"), where("studentId", "==", studentId))),
+    ]);
+
+    if (!studentSnapshot.exists()) {
+      return null;
+    }
+
+    const student = mapUser(studentSnapshot.id, studentSnapshot.data());
+    const passHistory = passesSnapshot.docs.map((item) => mapPass(item.id, item.data()));
+
+    return {
+      ...student,
+      totalRequests: requestSnapshot.size,
+      approvedPasses: passHistory.filter((pass) => pass.status === "approved").length,
+      passHistory: sortByCreatedAtDesc(passHistory),
+    };
+  },
+
+  async getAdmins() {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(
+      query(
+        collection(getFirebaseDb(), "users"),
+        where("role", "in", ["hall_admin", "chaplaincy", "security", "super_admin"]),
+      ),
+    );
+
+    return snapshot.docs.map((item) => mapUser(item.id, item.data()));
+  },
+
+  async getHostels() {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(collection(getFirebaseDb(), "hostels"));
+    return [...snapshot.docs.map((item) => mapHostel(item.id, item.data()))].sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
+  },
+
+  async createHostel(name: string) {
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the main admin can create hostels.");
+    }
+
+    const slug = slugify(name);
+
+    if (!slug) {
+      throw new Error("Hostel name is required.");
+    }
+
+    const hostelRef = doc(getFirebaseDb(), "hostels", slug);
+    await setDoc(hostelRef, {
+      name: name.trim(),
+      slug,
+      createdBy: actor.id,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: false });
+
+    const snapshot = await getDoc(hostelRef);
+    return mapHostel(snapshot.id, snapshot.data() || {});
+  },
+
+  async getStaffInvites() {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(collection(getFirebaseDb(), "staffInvites"));
+    return sortByCreatedAtDesc(
+      snapshot.docs.map((item) => mapStaffInvite(item.id, item.data())),
+    );
+  },
+
+  async createStaffInvite(input: CreateStaffInviteInput) {
+    const actor = await getCurrentSignedInProfile();
+    const normalizedEmail = input.email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      throw new Error("Invite email is required.");
+    }
+
+    if (
+      (actor.role === "chaplaincy" && input.role !== "chaplaincy") ||
+      (actor.role === "security" && input.role !== "security") ||
+      (actor.role !== "super_admin" && actor.role !== "chaplaincy" && actor.role !== "security")
+    ) {
+      throw new Error("You cannot create an invite for that role.");
+    }
+
+    if (input.role === "hall_admin" && !input.hostelId) {
+      throw new Error("Hall admin invites must be tied to a hostel.");
+    }
+
+    const duplicateSnapshot = await getDocs(
+      query(collection(getFirebaseDb(), "staffInvites"), where("email", "==", normalizedEmail)),
+    );
+
+    const existingPendingInvite = duplicateSnapshot.docs.find(
+      (item) => item.data().status === "pending",
+    );
+
+    if (existingPendingInvite) {
+      throw new Error("There is already an active invite for this email.");
+    }
+
+    let hostelName = "";
+
+    if (input.hostelId) {
+      const hostelSnapshot = await getDoc(doc(getFirebaseDb(), "hostels", input.hostelId));
+
+      if (!hostelSnapshot.exists()) {
+        throw new Error("Selected hostel was not found.");
+      }
+
+      hostelName = String(hostelSnapshot.data().name || "");
+    }
+
+    const inviteRef = await addDoc(collection(getFirebaseDb(), "staffInvites"), {
+      email: normalizedEmail,
+      name: input.name?.trim() || "",
+      role: input.role,
+      hostel: hostelName,
+      hostelId: input.hostelId || "",
+      status: "pending",
+      createdBy: actor.id,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const inviteSnapshot = await getDoc(inviteRef);
+    return mapStaffInvite(inviteSnapshot.id, inviteSnapshot.data() || {});
+  },
+
+  async getStaffInviteDetails(token: string) {
+    assertFirebaseReady();
+
+    const snapshot = await getDoc(doc(getFirebaseDb(), "staffInvites", token));
+
+    if (!snapshot.exists()) {
+      return null;
+    }
+
+    const invite = mapStaffInvite(snapshot.id, snapshot.data());
+    return invite.status === "pending" ? invite : null;
+  },
+
+  async registerStaffAccount(input: RegisterStaffInput) {
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const name = input.name.trim();
+    const password = input.password;
+    const token = input.token?.trim();
+
+    if (!name || !normalizedEmail || password.length < 8) {
+      throw new Error("Valid name, email, and password are required.");
+    }
+
+    let role = getLeadRoleForEmail(normalizedEmail);
+    let hostel = "";
+    let hostelId = "";
+
+    if (token) {
+      const invite = await this.getStaffInviteDetails(token);
+
+      if (!invite) {
+        throw new Error("This invite is invalid, expired, or already used.");
+      }
+
+      if (invite.email !== normalizedEmail) {
+        throw new Error("Use the invited email address to complete this signup.");
+      }
+
+      role = invite.role;
+      hostel = invite.hostel || "";
+      hostelId = invite.hostelId || "";
+    }
+
+    if (!role || role === "student") {
+      throw new Error("This email is not approved for staff signup.");
+    }
+
+    const credentials = await createUserWithEmailAndPassword(
+      getFirebaseAuth(),
+      normalizedEmail,
+      password,
+    );
+
+    await updateProfile(credentials.user, { displayName: name });
+
+    const userRef = doc(getFirebaseDb(), "users", credentials.user.uid);
+    await setDoc(userRef, {
+      name,
+      email: normalizedEmail,
+      matric: `${role.toUpperCase().replace(/_/g, "-")}-${Date.now().toString().slice(-6)}`,
+      role,
+      hostel,
+      permissions:
+        role === "super_admin"
+          ? ["approve_passes", "manage_students", "manage_admins", "view_analytics", "manage_hostels"]
+          : role === "hall_admin"
+            ? ["approve_passes", "manage_students", "view_analytics"]
+            : role === "chaplaincy"
+              ? ["approve_passes", "send_updates", "manage_staff"]
+              : ["scan_passes", "view_history", "manage_staff"],
+      disabled: false,
+      ...(token ? { inviteToken: token } : {}),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    if (token) {
+      await updateDoc(doc(getFirebaseDb(), "staffInvites", token), {
+        status: "claimed",
+        claimedBy: credentials.user.uid,
+        claimedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      if (role === "hall_admin" && hostelId) {
+        await updateDoc(doc(getFirebaseDb(), "hostels", hostelId), {
+          hallAdminEmail: normalizedEmail,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+
+    const snapshot = await getDoc(userRef);
+    return mapUser(snapshot.id, snapshot.data() || {});
+  },
+
+  async addAdmin(adminData: CreateAdminInput) {
+    const response = await callFirebaseFunction<{
+      user: Record<string, unknown>;
+      temporaryPassword: string;
+    }>("createAdminUser", adminData as unknown as Record<string, unknown>);
+
+    return {
+      user: mapUser(String(response.user.id || "admin"), response.user),
+      temporaryPassword: response.temporaryPassword,
+    } satisfies CreatedAdminResult;
+  },
+
+  async removeAdmin(adminId: string) {
+    await callFirebaseFunction("removeAdminUser", { adminId });
+    return true;
+  },
+
+  async updateAdmin(adminId: string, data: Partial<User>) {
+    const response = await callFirebaseFunction<{ user: Record<string, unknown> }>(
+      "updateAdminUser",
+      {
+        adminId,
+        data,
+      },
+    );
+
+    return mapUser(String(response.user.id || adminId), response.user);
+  },
+
+  async sendAnnouncement(title: string, message: string, recipientRole?: User["role"]) {
+    const response = await callFirebaseFunction<{ announcement: Record<string, unknown> }>(
+      "sendAnnouncement",
+      {
+        title,
+        message,
+        recipientRole,
+      },
+    );
+
+    return mapAnnouncement(
+      String(response.announcement.id || "announcement"),
+      response.announcement,
+    );
+  },
+
+  async getAnnouncements(role?: User["role"]) {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(collection(getFirebaseDb(), "announcements"));
+    const announcements = snapshot.docs.map((item) => mapAnnouncement(item.id, item.data()));
+
+    return sortByCreatedAtDesc(
+      announcements.filter(
+        (announcement) => !announcement.recipientRole || !role || announcement.recipientRole === role,
+      ),
+    );
+  },
+
+  async sendNotification(userId: string, title: string, message: string) {
+    const response = await callFirebaseFunction<{ notification: Record<string, unknown> }>(
+      "sendNotification",
+      {
+        userId,
+        title,
+        message,
+      },
+    );
+
+    return mapNotification(
+      String(response.notification.id || "notification"),
+      response.notification,
+    );
+  },
+
+  async getUserNotifications(userId: string) {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(
+      query(collection(getFirebaseDb(), "notifications"), where("userId", "==", userId)),
+    );
+
+    return sortByCreatedAtDesc(
+      snapshot.docs.map((item) => mapNotification(item.id, item.data())),
+    );
+  },
+
+  async getAnalytics() {
+    const response = await callFirebaseFunction<AnalyticsSummary>("getAnalytics", {});
+    return response;
+  },
+
+  async verifyQRCode(qrCode: string) {
+    const response = await callFirebaseFunction<Record<string, unknown>>(
+      "verifyPassQrCode",
+      {
+        qrCode,
+      },
+    );
+
+    return mapPassVerificationResult(response);
+  },
+
+  async scanEntry(qrCode: string, location = "Main Gate") {
+    return this.logScan(qrCode, location);
+  },
+
+  async logScan(qrCode: string, location: string) {
+    const response = await callFirebaseFunction<{ scan: Record<string, unknown> }>(
+      "logPassScan",
+      {
+        qrCode,
+        location,
+      },
+    );
+
+    return mapScanLog(String(response.scan.id || "scan"), response.scan);
+  },
+
+  async getScanHistory(resultLimit = 50) {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(
+      query(collection(getFirebaseDb(), "scans"), orderBy("timestamp", "desc"), limit(resultLimit)),
+    );
+
+    return snapshot.docs.map((item) => mapScanLog(item.id, item.data()));
+  },
+
+  isConfigured() {
+    return isFirebaseConfigured;
+  },
+
+  configurationError() {
+    return getFirebaseConfigurationError();
+  },
+
+  async validateStudentSignupEmail(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (
+      normalizedEmail === staffPortals.admin.leadEmail ||
+      normalizedEmail === staffPortals.security.leadEmail ||
+      normalizedEmail === staffPortals.chaplaincy.leadEmail
+    ) {
+      return {
+        allowed: false,
+        message: "That email is reserved for staff setup. Use the staff portal instead.",
+      };
+    }
+
+    const snapshot = await getDocs(
+      query(collection(getFirebaseDb(), "staffInvites"), where("email", "==", normalizedEmail)),
+    );
+
+    const hasPendingInvite = snapshot.docs.some((item) => item.data().status === "pending");
+
+    return hasPendingInvite
+      ? {
+          allowed: false,
+          message: "That email already has a staff invite. Use the matching staff portal instead.",
+        }
+      : {
+          allowed: true,
+        };
+  },
+};

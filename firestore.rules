@@ -1,0 +1,288 @@
+  rules_version = '2';
+
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function currentUserProfile() {
+        return isSignedIn()
+          ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+          : null;
+      }
+
+      function role() {
+        return currentUserProfile() != null && currentUserProfile().role is string
+          ? currentUserProfile().role
+          : (isSignedIn() ? request.auth.token.role : null);
+      }
+
+      function isAdmin() {
+        return role() in ['hall_admin', 'chaplaincy', 'super_admin'];
+      }
+
+      function isSuperAdmin() {
+        return role() == 'super_admin';
+      }
+
+      function isChaplaincy() {
+        return role() == 'chaplaincy';
+      }
+
+      function isHallAdmin() {
+        return role() == 'hall_admin';
+      }
+
+      function isSecurity() {
+        return role() == 'security';
+      }
+
+      function isPrivileged() {
+        return isAdmin() || isSecurity();
+      }
+
+      function currentUserHostel() {
+        return currentUserProfile() != null && currentUserProfile().hostel is string
+          ? currentUserProfile().hostel
+          : null;
+      }
+
+      function isLeadStaffEmail() {
+        return request.resource.data.email in [
+          'oluokundavid4@gmail.com',
+          'xplick@gmail.com',
+          'blyinkr4@gmail.com'
+        ];
+      }
+
+      function isApprovedLeadStaffCreate() {
+        return request.resource.data.role in ['super_admin', 'security', 'chaplaincy']
+          && (
+            (request.resource.data.role == 'super_admin'
+              && request.resource.data.email == 'oluokundavid4@gmail.com')
+            ||
+            (request.resource.data.role == 'security'
+              && request.resource.data.email == 'xplick@gmail.com')
+            ||
+            (request.resource.data.role == 'chaplaincy'
+              && request.resource.data.email == 'blyinkr4@gmail.com')
+          );
+      }
+
+      function inviteDoc() {
+        return request.resource.data.inviteToken is string
+          ? get(/databases/$(database)/documents/staffInvites/$(request.resource.data.inviteToken))
+          : null;
+      }
+
+      function hasValidInviteForStaffCreate() {
+        return request.resource.data.inviteToken is string
+          && inviteDoc() != null
+          && inviteDoc().data.status == 'pending'
+          && inviteDoc().data.email == request.resource.data.email
+          && inviteDoc().data.role == request.resource.data.role
+          && (
+            request.resource.data.role != 'hall_admin'
+            || (
+              inviteDoc().data.hostel is string
+              && request.resource.data.hostel == inviteDoc().data.hostel
+            )
+          );
+      }
+
+      function canCreateStaffProfile(userId) {
+        return isOwner(userId)
+          && request.resource.data.role in ['hall_admin', 'chaplaincy', 'security', 'super_admin']
+          && request.resource.data.email is string
+          && request.resource.data.name is string
+          && request.resource.data.matric is string
+          && (
+            isApprovedLeadStaffCreate()
+            || hasValidInviteForStaffCreate()
+          );
+      }
+
+      function canCreateStudentProfile(userId) {
+        return isOwner(userId)
+          && request.resource.data.role == 'student'
+          && request.resource.data.email is string
+          && request.resource.data.name is string
+          && request.resource.data.matric is string
+          && !isLeadStaffEmail();
+      }
+
+      function immutablePassRequestFieldsUnchanged() {
+        return request.resource.data.studentId == resource.data.studentId
+          && request.resource.data.studentSnapshot == resource.data.studentSnapshot
+          && request.resource.data.type == resource.data.type
+          && request.resource.data.destination == resource.data.destination
+          && request.resource.data.reason == resource.data.reason
+          && request.resource.data.departureDate == resource.data.departureDate
+          && request.resource.data.expectedReturnDate == resource.data.expectedReturnDate
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt;
+      }
+
+      function canCreateStudentPassRequest() {
+        return isSignedIn()
+          && request.resource.data.studentId == request.auth.uid
+          && request.resource.data.studentSnapshot.role == 'student'
+          && request.resource.data.type in ['short', 'long', 'holiday']
+          && request.resource.data.destination is string
+          && request.resource.data.reason is string
+          && request.resource.data.departureDate is timestamp
+          && request.resource.data.expectedReturnDate is timestamp
+          && request.resource.data.status == 'chaplaincy_required'
+          && request.resource.data.currentStage == 'chaplaincy'
+          && request.resource.data.createdBy == request.auth.uid;
+      }
+
+      function canReviewAtChaplaincyStage() {
+        return immutablePassRequestFieldsUnchanged()
+          && resource.data.status == 'chaplaincy_required'
+          && resource.data.currentStage == 'chaplaincy'
+          && (isChaplaincy() || isSuperAdmin())
+          && request.resource.data.status in ['pending', 'rejected']
+          && (
+            (request.resource.data.status == 'pending'
+              && request.resource.data.currentStage == 'hall_admin'
+              && request.resource.data.chaplainApproval.status == 'approved')
+            ||
+            (request.resource.data.status == 'rejected'
+              && request.resource.data.currentStage == 'completed'
+              && request.resource.data.chaplainApproval.status == 'rejected'
+              && request.resource.data.rejectionReason is string)
+          );
+      }
+
+      function canReviewAtHallStage() {
+        return immutablePassRequestFieldsUnchanged()
+          && resource.data.status == 'pending'
+          && resource.data.currentStage == 'hall_admin'
+          && request.resource.data.chaplainApproval == resource.data.chaplainApproval
+          && (
+            isSuperAdmin()
+            ||
+            (isHallAdmin()
+              && currentUserHostel() is string
+              && resource.data.studentSnapshot.hostel == currentUserHostel())
+          )
+          && request.resource.data.status in ['approved', 'rejected']
+          && (
+            (request.resource.data.status == 'approved'
+              && request.resource.data.currentStage == 'completed'
+              && request.resource.data.hallAdminApproval.status == 'approved'
+              && request.resource.data.approvedAt is timestamp)
+            ||
+            (request.resource.data.status == 'rejected'
+              && request.resource.data.currentStage == 'completed'
+              && request.resource.data.hallAdminApproval.status == 'rejected'
+              && request.resource.data.rejectionReason is string)
+          );
+      }
+
+      match /users/{userId} {
+        allow read: if isOwner(userId) || isPrivileged();
+        allow create: if canCreateStudentProfile(userId) || canCreateStaffProfile(userId);
+        allow update: if isOwner(userId)
+          && resource.data.role == 'student'
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.permissions == resource.data.permissions
+          && request.resource.data.disabled == resource.data.disabled;
+        allow delete: if false;
+      }
+
+      match /passRequests/{requestId} {
+        allow read: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
+        allow create: if canCreateStudentPassRequest();
+        allow update: if canReviewAtChaplaincyStage() || canReviewAtHallStage();
+        allow delete: if false;
+      }
+
+      match /hostels/{hostelId} {
+        allow read: if true;
+        allow create: if isSignedIn()
+          && isSuperAdmin()
+          && request.resource.data.name is string
+          && request.resource.data.slug == hostelId
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isSignedIn()
+          && (
+            isSuperAdmin()
+            || (
+              isHallAdmin()
+              && currentUserHostel() is string
+              && currentUserHostel() == resource.data.name
+              && request.resource.data.hallAdminEmail == currentUserProfile().email
+            )
+          );
+        allow delete: if false;
+      }
+
+      match /staffInvites/{inviteId} {
+        allow get: if resource.data.status == 'pending' || (isSignedIn() && isPrivileged());
+        allow list: if isSignedIn() && isPrivileged();
+        allow create: if isSignedIn()
+          && (
+            (isSuperAdmin() && request.resource.data.role in ['hall_admin', 'chaplaincy', 'security'])
+            || (isChaplaincy() && request.resource.data.role == 'chaplaincy')
+            || (isSecurity() && request.resource.data.role == 'security')
+          )
+          && request.resource.data.email is string
+          && request.resource.data.status == 'pending'
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isSignedIn()
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'claimed'
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.claimedBy == request.auth.uid
+          && currentUserProfile() != null
+          && currentUserProfile().email == resource.data.email;
+        allow delete: if false;
+      }
+
+      match /passes/{passId} {
+        allow read: if isSignedIn() && (resource.data.studentId == request.auth.uid || isPrivileged());
+        allow create: if isSignedIn()
+          && request.resource.data.requestId == passId
+          && request.resource.data.studentId is string
+          && request.resource.data.status == 'approved'
+          && request.resource.data.currentStage == 'completed'
+          && (
+            isSuperAdmin()
+            ||
+            (isHallAdmin()
+              && currentUserHostel() is string
+              && request.resource.data.studentSnapshot.hostel == currentUserHostel())
+          );
+        allow update, delete: if false;
+      }
+
+      match /announcements/{announcementId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isPrivileged());
+        allow write: if false;
+      }
+
+      match /scans/{scanId} {
+        allow read: if isSignedIn() && isPrivileged();
+        allow write: if false;
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+  }
