@@ -103,12 +103,12 @@ export default function DashboardPage() {
     <DashboardShell title="Student Dashboard" contentClassName="mx-auto max-w-7xl">
       <div className="space-y-6">
         <PageHero
-          eyebrow="Student lane"
-          title={`Welcome back, ${user.name}`}
+          eyebrow="Student"
+          title={`Welcome, ${user.name}`}
           description={
             studentMeta
-              ? `${studentMeta}. Request a pass, track each approval stage, and keep your QR ready before you get to the gate.`
-              : 'Request a pass, track each approval stage, and keep your QR ready before you get to the gate.'
+              ? `${studentMeta}. Create requests, check status, and open your QR pass here.`
+              : 'Create requests, check status, and open your QR pass here.'
           }
           actions={
             <>
@@ -131,27 +131,23 @@ export default function DashboardPage() {
             <MetricCard
               label="Active now"
               value={activePasses.length}
-              description="Passes currently valid for movement."
               icon={ScanLine}
             />
             <MetricCard
               label="Open requests"
               value={openRequests}
-              description="Requests still waiting on approval."
               icon={Clock3}
               accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Approved"
               value={approvedPasses}
-              description="Passes cleared for use so far."
               icon={CheckCircle2}
               accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="History"
               value={passHistory.length}
-              description="Every request and pass record in one place."
               icon={Bell}
               accentClassName="brand-icon-chip"
             />
@@ -175,7 +171,7 @@ export default function DashboardPage() {
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
               <SectionCard
                 title="Pass spotlight"
-                description="Your most important pass details stay ready at a glance."
+                description="Your current pass or latest request."
               >
                 {activePasses[0] ? (
                   <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -224,12 +220,12 @@ export default function DashboardPage() {
                       </div>
                       <div className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                          QR readiness
+                          QR status
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-900">
                           {activePasses[0].qrCode
-                            ? 'Your QR code is generated and ready for security verification.'
-                            : 'QR code will appear once the pass is approved.'}
+                            ? 'Ready to scan.'
+                            : 'Available after approval.'}
                         </p>
                       </div>
                     </div>
@@ -255,7 +251,7 @@ export default function DashboardPage() {
                 ) : (
                   <EmptyState
                     title="No passes yet"
-                    description="Your first request will appear here with live progress through chaplaincy, hall admin review, and gate readiness."
+                    description="Your first request will appear here."
                     action={
                       <Button
                         onClick={() => navigate('/dashboard/request')}
@@ -270,7 +266,7 @@ export default function DashboardPage() {
 
               <SectionCard
                 title="Announcements"
-                description="Important updates from staff stay visible here."
+                description="Latest updates."
               >
                 {announcements.length ? (
                   <div className="space-y-3">
@@ -303,7 +299,7 @@ export default function DashboardPage() {
 
             <SectionCard
               title="Recent activity"
-              description="Every pass request and final pass record stays visible with its current stage."
+              description="Recent requests and pass records."
               action={
                 <Button
                   variant="outline"
@@ -349,7 +345,7 @@ export default function DashboardPage() {
               ) : (
                 <EmptyState
                   title="No activity yet"
-                  description="Once you submit a pass request, its progress will show up here immediately."
+                  description="Your requests will appear here."
                 />
               )}
             </SectionCard>

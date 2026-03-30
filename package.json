@@ -6,7 +6,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "functions:build": "npm --prefix functions run build",
+    "functions:emulator": "firebase emulators:start --project exiteasy-1 --only functions"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

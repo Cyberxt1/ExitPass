@@ -1,0 +1,275 @@
+[2026-03-30T11:15:37.230Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[2026-03-30T11:15:37.234Z] > authorizing via signed-in user (oluwadimimu.king@gmail.com)
+i  emulators: Starting emulators: functions {"metadata":{"emulator":{"name":"hub"},"message":"Starting emulators: functions"}}
+[2026-03-30T11:15:37.261Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[2026-03-30T11:15:37.262Z] assigned listening specs for emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}]},"metadata":{"message":"assigned listening specs for emulators"}}
+[2026-03-30T11:15:37.267Z] Write emulator hub locator at C:\Users\King\AppData\Local\Temp\hub-exiteasy-1.json
+[2026-03-30T11:15:37.286Z] [functions] Functions Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[2026-03-30T11:15:37.286Z] [eventarc] Eventarc Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[2026-03-30T11:15:37.287Z] [tasks] Cloud Tasks Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[2026-03-30T11:15:37.287Z] late-assigned ports for functions and eventarc emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"functions":[{"address":"127.0.0.1","family":"IPv4","port":5001}],"eventarc":[{"address":"127.0.0.1","family":"IPv4","port":9299}],"tasks":[{"address":"127.0.0.1","family":"IPv4","port":9499}]},"metadata":{"message":"late-assigned ports for functions and eventarc emulators"}}
+!  functions: The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, auth, firestore, database, hosting, pubsub, storage, dataconnect {"metadata":{"emulator":{"name":"functions"},"message":"The following emulators are not running, calls to these services from the Functions emulator will affect production: \u001b[1mapphosting, auth, firestore, database, hosting, pubsub, storage, dataconnect\u001b[22m"}}
+[2026-03-30T11:15:37.565Z] defaultcredentials: writing to file C:\Users\King\AppData\Roaming\firebase\oluwadimimu_king_gmail.com_application_default_credentials.json
+[2026-03-30T11:15:37.569Z] Setting GAC to C:\Users\King\AppData\Roaming\firebase\oluwadimimu_king_gmail.com_application_default_credentials.json {"metadata":{"emulator":{"name":"functions"},"message":"Setting GAC to C:\\Users\\King\\AppData\\Roaming\\firebase\\oluwadimimu_king_gmail.com_application_default_credentials.json"}}
+[2026-03-30T11:15:37.571Z] Checked if tokens are valid: true, expires at: 1774872650867
+[2026-03-30T11:15:37.571Z] Checked if tokens are valid: true, expires at: 1774872650867
+[2026-03-30T11:15:37.574Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/exiteasy-1/adminSdkConfig [none]
+[2026-03-30T11:15:38.722Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/exiteasy-1/adminSdkConfig 200
+[2026-03-30T11:15:38.729Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/exiteasy-1/adminSdkConfig {"projectId":"exiteasy-1","storageBucket":"exiteasy-1.firebasestorage.app"}
+i  ui: downloading ui-v1.15.0.zip... {"metadata":{"emulator":{"name":"ui"},"message":"downloading ui-v1.15.0.zip..."}}
+[2026-03-30T11:15:38.784Z] >>> [apiv2][query] GET https://storage.googleapis.com/firebase-preview-drop/emulator/ui-v1.15.0.zip 
+[2026-03-30T11:15:39.478Z] <<< [apiv2][status] GET https://storage.googleapis.com/firebase-preview-drop/emulator/ui-v1.15.0.zip 200
+[2026-03-30T11:15:39.664Z] <<< [apiv2][body] GET https://storage.googleapis.com/firebase-preview-drop/emulator/ui-v1.15.0.zip [stream]
+[2026-03-30T11:15:46.127Z] Data is 3538469
+[2026-03-30T11:15:46.128Z] [unzip] Entry: client/ (compressed_size=0 bytes, uncompressed_size=0 bytes)
+[2026-03-30T11:15:46.129Z] [unzip] Processing entry: client\
+[2026-03-30T11:15:46.129Z] [unzip] mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\
+[2026-03-30T11:15:46.131Z] [unzip] Entry: client/favicon-16x16.png (compressed_size=293 bytes, uncompressed_size=293 bytes)
+[2026-03-30T11:15:46.131Z] [unzip] Processing entry: client\favicon-16x16.png
+[2026-03-30T11:15:46.132Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.133Z] [unzip] Writing file: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\favicon-16x16.png
+[2026-03-30T11:15:46.134Z] [unzip] Entry: client/safari-pinned-tab.svg (compressed_size=1433 bytes, uncompressed_size=2611 bytes)
+[2026-03-30T11:15:46.135Z] [unzip] Processing entry: client\safari-pinned-tab.svg
+[2026-03-30T11:15:46.135Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.136Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\safari-pinned-tab.svg
+[2026-03-30T11:15:46.144Z] [unzip] Entry: client/favicon.ico (compressed_size=2933 bytes, uncompressed_size=13294 bytes)
+[2026-03-30T11:15:46.145Z] [unzip] Processing entry: client\favicon.ico
+[2026-03-30T11:15:46.146Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.146Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\favicon.ico
+[2026-03-30T11:15:46.149Z] [unzip] Entry: client/index.html (compressed_size=1364 bytes, uncompressed_size=3071 bytes)
+[2026-03-30T11:15:46.149Z] [unzip] Processing entry: client\index.html
+[2026-03-30T11:15:46.150Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.151Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\index.html
+[2026-03-30T11:15:46.154Z] [unzip] Entry: client/android-chrome-192x192.png (compressed_size=2684 bytes, uncompressed_size=2684 bytes)
+[2026-03-30T11:15:46.155Z] [unzip] Processing entry: client\android-chrome-192x192.png
+[2026-03-30T11:15:46.155Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.156Z] [unzip] Writing file: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\android-chrome-192x192.png
+[2026-03-30T11:15:46.158Z] [unzip] Entry: client/apple-touch-icon.png (compressed_size=2123 bytes, uncompressed_size=2152 bytes)
+[2026-03-30T11:15:46.158Z] [unzip] Processing entry: client\apple-touch-icon.png
+[2026-03-30T11:15:46.159Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.160Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\apple-touch-icon.png
+[2026-03-30T11:15:46.162Z] [unzip] Entry: client/android-chrome-512x512.png (compressed_size=5369 bytes, uncompressed_size=5411 bytes)
+[2026-03-30T11:15:46.163Z] [unzip] Processing entry: client\android-chrome-512x512.png
+[2026-03-30T11:15:46.163Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.164Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\android-chrome-512x512.png
+[2026-03-30T11:15:46.167Z] [unzip] Entry: client/manifest.json (compressed_size=245 bytes, uncompressed_size=551 bytes)
+[2026-03-30T11:15:46.168Z] [unzip] Processing entry: client\manifest.json
+[2026-03-30T11:15:46.168Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.169Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\manifest.json
+[2026-03-30T11:15:46.171Z] [unzip] Entry: client/robots.txt (compressed_size=26 bytes, uncompressed_size=26 bytes)
+[2026-03-30T11:15:46.172Z] [unzip] Processing entry: client\robots.txt
+[2026-03-30T11:15:46.174Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.175Z] [unzip] Writing file: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\robots.txt
+[2026-03-30T11:15:46.177Z] [unzip] Entry: client/mstile-150x150.png (compressed_size=2034 bytes, uncompressed_size=2034 bytes)
+[2026-03-30T11:15:46.178Z] [unzip] Processing entry: client\mstile-150x150.png
+[2026-03-30T11:15:46.178Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.179Z] [unzip] Writing file: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\mstile-150x150.png
+[2026-03-30T11:15:46.181Z] [unzip] Entry: client/assets/ (compressed_size=0 bytes, uncompressed_size=0 bytes)
+[2026-03-30T11:15:46.182Z] [unzip] Processing entry: client\assets\
+[2026-03-30T11:15:46.182Z] [unzip] mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\
+[2026-03-30T11:15:46.188Z] [unzip] Entry: client/assets/index-BX-A56oj.js (compressed_size=582089 bytes, uncompressed_size=2092775 bytes)
+[2026-03-30T11:15:46.191Z] [unzip] Processing entry: client\assets\index-BX-A56oj.js
+[2026-03-30T11:15:46.192Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets
+[2026-03-30T11:15:46.193Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\index-BX-A56oj.js
+[2026-03-30T11:15:46.213Z] [unzip] Entry: client/assets/index-CjB9C900.css (compressed_size=35979 bytes, uncompressed_size=298654 bytes)
+[2026-03-30T11:15:46.214Z] [unzip] Processing entry: client\assets\index-CjB9C900.css
+[2026-03-30T11:15:46.214Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets
+[2026-03-30T11:15:46.215Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\index-CjB9C900.css
+[2026-03-30T11:15:46.219Z] [unzip] Entry: client/assets/index-BX-A56oj.js.map (compressed_size=2362482 bytes, uncompressed_size=10036679 bytes)
+[2026-03-30T11:15:46.220Z] [unzip] Processing entry: client\assets\index-BX-A56oj.js.map
+[2026-03-30T11:15:46.220Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets
+[2026-03-30T11:15:46.221Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\index-BX-A56oj.js.map
+[2026-03-30T11:15:46.307Z] [unzip] Entry: client/assets/extensions/ (compressed_size=0 bytes, uncompressed_size=0 bytes)
+[2026-03-30T11:15:46.308Z] [unzip] Processing entry: client\assets\extensions\
+[2026-03-30T11:15:46.308Z] [unzip] mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\extensions\
+[2026-03-30T11:15:46.309Z] [unzip] Entry: client/assets/extensions/default-extension.png (compressed_size=1646 bytes, uncompressed_size=1657 bytes)
+[2026-03-30T11:15:46.310Z] [unzip] Processing entry: client\assets\extensions\default-extension.png
+[2026-03-30T11:15:46.310Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\extensions
+[2026-03-30T11:15:46.311Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\extensions\default-extension.png
+[2026-03-30T11:15:46.313Z] [unzip] Entry: client/assets/img/ (compressed_size=0 bytes, uncompressed_size=0 bytes)
+[2026-03-30T11:15:46.313Z] [unzip] Processing entry: client\assets\img\
+[2026-03-30T11:15:46.314Z] [unzip] mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\img\
+[2026-03-30T11:15:46.314Z] [unzip] Entry: client/assets/img/database.png (compressed_size=29449 bytes, uncompressed_size=29988 bytes)
+[2026-03-30T11:15:46.315Z] [unzip] Processing entry: client\assets\img\database.png
+[2026-03-30T11:15:46.315Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\img
+[2026-03-30T11:15:46.316Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\img\database.png
+[2026-03-30T11:15:46.318Z] [unzip] Entry: client/assets/provider-icons/ (compressed_size=0 bytes, uncompressed_size=0 bytes)
+[2026-03-30T11:15:46.318Z] [unzip] Processing entry: client\assets\provider-icons\
+[2026-03-30T11:15:46.319Z] [unzip] mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\
+[2026-03-30T11:15:46.319Z] [unzip] Entry: client/assets/provider-icons/auth_service_saml.svg (compressed_size=575 bytes, uncompressed_size=1226 bytes)
+[2026-03-30T11:15:46.320Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_saml.svg
+[2026-03-30T11:15:46.320Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.321Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_saml.svg
+[2026-03-30T11:15:46.323Z] [unzip] Entry: client/assets/provider-icons/auth_service_phone.svg (compressed_size=261 bytes, uncompressed_size=414 bytes)
+[2026-03-30T11:15:46.324Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_phone.svg
+[2026-03-30T11:15:46.325Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.326Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_phone.svg
+[2026-03-30T11:15:46.328Z] [unzip] Entry: client/assets/provider-icons/auth_service_facebook.svg (compressed_size=289 bytes, uncompressed_size=457 bytes)
+[2026-03-30T11:15:46.329Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_facebook.svg
+[2026-03-30T11:15:46.329Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.330Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_facebook.svg
+[2026-03-30T11:15:46.332Z] [unzip] Entry: client/assets/provider-icons/auth_service_game_center.svg (compressed_size=991 bytes, uncompressed_size=3921 bytes)
+[2026-03-30T11:15:46.333Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_game_center.svg
+[2026-03-30T11:15:46.333Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.334Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_game_center.svg
+[2026-03-30T11:15:46.336Z] [unzip] Entry: client/assets/provider-icons/auth_service_apple.svg (compressed_size=230 bytes, uncompressed_size=334 bytes)
+[2026-03-30T11:15:46.337Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_apple.svg
+[2026-03-30T11:15:46.337Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.338Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_apple.svg
+[2026-03-30T11:15:46.342Z] [unzip] Entry: client/assets/provider-icons/auth_service_github.svg (compressed_size=466 bytes, uncompressed_size=838 bytes)
+[2026-03-30T11:15:46.343Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_github.svg
+[2026-03-30T11:15:46.343Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.344Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_github.svg
+[2026-03-30T11:15:46.346Z] [unzip] Entry: client/assets/provider-icons/auth_service_mslive.svg (compressed_size=203 bytes, uncompressed_size=378 bytes)
+[2026-03-30T11:15:46.346Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_mslive.svg
+[2026-03-30T11:15:46.347Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.348Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_mslive.svg
+[2026-03-30T11:15:46.351Z] [unzip] Entry: client/assets/provider-icons/auth_service_yahoo.svg (compressed_size=577 bytes, uncompressed_size=1182 bytes)
+[2026-03-30T11:15:46.351Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_yahoo.svg
+[2026-03-30T11:15:46.352Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.353Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_yahoo.svg
+[2026-03-30T11:15:46.354Z] [unzip] Entry: client/assets/provider-icons/auth_service_twitter.svg (compressed_size=444 bytes, uncompressed_size=751 bytes)
+[2026-03-30T11:15:46.355Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_twitter.svg
+[2026-03-30T11:15:46.356Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.357Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_twitter.svg
+[2026-03-30T11:15:46.360Z] [unzip] Entry: client/assets/provider-icons/auth_service_play_games.svg (compressed_size=565 bytes, uncompressed_size=1173 bytes)
+[2026-03-30T11:15:46.360Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_play_games.svg
+[2026-03-30T11:15:46.361Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.361Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_play_games.svg
+[2026-03-30T11:15:46.363Z] [unzip] Entry: client/assets/provider-icons/auth_service_email.svg (compressed_size=228 bytes, uncompressed_size=326 bytes)
+[2026-03-30T11:15:46.364Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_email.svg
+[2026-03-30T11:15:46.364Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.365Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_email.svg
+[2026-03-30T11:15:46.367Z] [unzip] Entry: client/assets/provider-icons/auth_service_google.svg (compressed_size=409 bytes, uncompressed_size=720 bytes)
+[2026-03-30T11:15:46.367Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_google.svg
+[2026-03-30T11:15:46.367Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.369Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_google.svg
+[2026-03-30T11:15:46.370Z] [unzip] Entry: client/assets/provider-icons/auth_service_oidc.svg (compressed_size=414 bytes, uncompressed_size=858 bytes)
+[2026-03-30T11:15:46.371Z] [unzip] Processing entry: client\assets\provider-icons\auth_service_oidc.svg
+[2026-03-30T11:15:46.371Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons
+[2026-03-30T11:15:46.372Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\assets\provider-icons\auth_service_oidc.svg
+[2026-03-30T11:15:46.374Z] [unzip] Entry: client/browserconfig.xml (compressed_size=491 bytes, uncompressed_size=822 bytes)
+[2026-03-30T11:15:46.375Z] [unzip] Processing entry: client\browserconfig.xml
+[2026-03-30T11:15:46.376Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.377Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\browserconfig.xml
+[2026-03-30T11:15:46.378Z] [unzip] Entry: client/favicon-32x32.png (compressed_size=475 bytes, uncompressed_size=475 bytes)
+[2026-03-30T11:15:46.379Z] [unzip] Processing entry: client\favicon-32x32.png
+[2026-03-30T11:15:46.379Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client
+[2026-03-30T11:15:46.380Z] [unzip] Writing file: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\client\favicon-32x32.png
+[2026-03-30T11:15:46.382Z] [unzip] Entry: server/ (compressed_size=0 bytes, uncompressed_size=0 bytes)
+[2026-03-30T11:15:46.383Z] [unzip] Processing entry: server\
+[2026-03-30T11:15:46.383Z] [unzip] mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\server\
+[2026-03-30T11:15:46.384Z] [unzip] Entry: server/server.mjs.map (compressed_size=217845 bytes, uncompressed_size=944978 bytes)
+[2026-03-30T11:15:46.384Z] [unzip] Processing entry: server\server.mjs.map
+[2026-03-30T11:15:46.385Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\server
+[2026-03-30T11:15:46.386Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\server\server.mjs.map
+[2026-03-30T11:15:46.396Z] [unzip] Entry: server/server.mjs (compressed_size=276407 bytes, uncompressed_size=933701 bytes)
+[2026-03-30T11:15:46.397Z] [unzip] Processing entry: server\server.mjs
+[2026-03-30T11:15:46.397Z] [unzip] else mkdir: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\server
+[2026-03-30T11:15:46.398Z] [unzip] deflating: C:\Users\King\.cache\firebase\emulators\ui-v1.15.0\server\server.mjs
+i  functions: Watching "C:\Users\King\Desktop\ExitPass\functions" for Cloud Functions... {"metadata":{"emulator":{"name":"functions"},"message":"Watching \"C:\\Users\\King\\Desktop\\ExitPass\\functions\" for Cloud Functions..."}}
+[2026-03-30T11:15:46.425Z] Validating nodejs source
+[2026-03-30T11:15:50.500Z] > [functions] package.json contents: {
+  "name": "exitpass-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@types/node": "^25.5.0",
+    "firebase-admin": "^13.7.0",
+    "firebase-functions": "^7.2.2",
+    "typescript": "^5.9.3"
+  }
+}
+[2026-03-30T11:15:50.512Z] Building nodejs source
+[2026-03-30T11:15:50.513Z] Failed to find version of module node: reached end of search path C:\Users\King\Desktop\ExitPass\functions\node_modules
+!  functions: Your requested "node" version "20" doesn't match your global version "24". Using node@24 from host. 
+[2026-03-30T11:15:50.519Z] Could not find functions.yaml. Must use http discovery
+[2026-03-30T11:15:50.531Z] Found firebase-functions binary at 'C:\Users\King\Desktop\ExitPass\functions\node_modules\.bin\firebase-functions'
+Serving at port 8572
+
+[2026-03-30T11:15:53.553Z] Got response from /__/functions.yaml {"endpoints":{"validateStudentSignupEmail":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"validateStudentSignupEmail"},"lookupStudentAccess":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"lookupStudentAccess"},"createStudentAccount":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"createStudentAccount"},"registerStaffAccount":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"registerStaffAccount"},"createHostel":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"createHostel"},"createStaffInvite":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"createStaffInvite"},"getStaffInviteDetails":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"getStaffInviteDetails"},"submitPassRequest":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"submitPassRequest"},"approvePassRequest":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"approvePassRequest"},"rejectPassRequest":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"rejectPassRequest"},"createAdminUser":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"createAdminUser"},"removeAdminUser":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"removeAdminUser"},"updateAdminUser":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"updateAdminUser"},"sendAnnouncement":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"sendAnnouncement"},"sendNotification":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"sendNotification"},"getAnalytics":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"getAnalytics"},"verifyPassQrCode":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"verifyPassQrCode"},"logPassScan":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"callableTrigger":{},"entryPoint":"logPassScan"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{}}
++  functions: Loaded functions definitions from source: validateStudentSignupEmail, lookupStudentAccess, createStudentAccount, registerStaffAccount, createHostel, createStaffInvite, getStaffInviteDetails, submitPassRequest, approvePassRequest, rejectPassRequest, createAdminUser, removeAdminUser, updateAdminUser, sendAnnouncement, sendNotification, getAnalytics, verifyPassQrCode, logPassScan. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: validateStudentSignupEmail, lookupStudentAccess, createStudentAccount, registerStaffAccount, createHostel, createStaffInvite, getStaffInviteDetails, submitPassRequest, approvePassRequest, rejectPassRequest, createAdminUser, removeAdminUser, updateAdminUser, sendAnnouncement, sendNotification, getAnalytics, verifyPassQrCode, logPassScan."}}
++  functions[us-central1-validateStudentSignupEmail]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/validateStudentSignupEmail). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/validateStudentSignupEmail)."}}
++  functions[us-central1-lookupStudentAccess]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/lookupStudentAccess). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/lookupStudentAccess)."}}
++  functions[us-central1-createStudentAccount]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/createStudentAccount). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/createStudentAccount)."}}
++  functions[us-central1-registerStaffAccount]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/registerStaffAccount). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/registerStaffAccount)."}}
++  functions[us-central1-createHostel]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/createHostel). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/createHostel)."}}
++  functions[us-central1-createStaffInvite]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/createStaffInvite). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/createStaffInvite)."}}
++  functions[us-central1-getStaffInviteDetails]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/getStaffInviteDetails). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/getStaffInviteDetails)."}}
++  functions[us-central1-submitPassRequest]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/submitPassRequest). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/submitPassRequest)."}}
++  functions[us-central1-approvePassRequest]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/approvePassRequest). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/approvePassRequest)."}}
++  functions[us-central1-rejectPassRequest]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/rejectPassRequest). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/rejectPassRequest)."}}
++  functions[us-central1-createAdminUser]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/createAdminUser). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/createAdminUser)."}}
++  functions[us-central1-removeAdminUser]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/removeAdminUser). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/removeAdminUser)."}}
++  functions[us-central1-updateAdminUser]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/updateAdminUser). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/updateAdminUser)."}}
++  functions[us-central1-sendAnnouncement]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/sendAnnouncement). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/sendAnnouncement)."}}
++  functions[us-central1-sendNotification]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/sendNotification). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/sendNotification)."}}
++  functions[us-central1-getAnalytics]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/getAnalytics). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/getAnalytics)."}}
++  functions[us-central1-verifyPassQrCode]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/verifyPassQrCode). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/verifyPassQrCode)."}}
++  functions[us-central1-logPassScan]: http function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/logPassScan). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/exiteasy-1/us-central1/logPassScan)."}}
+[2026-03-30T11:15:58.481Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
+
+┌─────────────────────────────────────────────────────────────┐
+│ ✔  All emulators ready! It is now safe to connect your app. │
+│ i  View Emulator UI at http://127.0.0.1:4000/               │
+└─────────────────────────────────────────────────────────────┘
+
+┌───────────┬────────────────┬─────────────────────────────────┐
+│ Emulator  │ Host:Port      │ View in Emulator UI             │
+├───────────┼────────────────┼─────────────────────────────────┤
+│ Functions │ 127.0.0.1:5001 │ http://127.0.0.1:4000/functions │
+└───────────┴────────────────┴─────────────────────────────────┘
+  Emulator Hub host: 127.0.0.1 port: 4400
+  Other reserved ports: 4500
+
+Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
+ 
+[2026-03-30T11:16:22.480Z] [work-queue] {"queuedWork":["/exiteasy-1/us-central1/lookupStudentAccess-2026-03-30T11:16:22.480Z"],"queueLength":1,"runningWork":[],"workRunningCount":0}
+[2026-03-30T11:16:22.481Z] [work-queue] {"queuedWork":[],"queueLength":0,"runningWork":["/exiteasy-1/us-central1/lookupStudentAccess-2026-03-30T11:16:22.480Z"],"workRunningCount":1}
+[2026-03-30T11:16:22.481Z] Accepted request OPTIONS /exiteasy-1/us-central1/lookupStudentAccess --> us-central1-lookupStudentAccess
+[2026-03-30T11:16:22.483Z] [functions] Runtime ready! Sending request! {"metadata":{"emulator":{"name":"functions"},"message":"[functions] Runtime ready! Sending request!"}}
+[2026-03-30T11:16:22.484Z] [functions] Got req.url=/exiteasy-1/us-central1/lookupStudentAccess, mapping to path=/ {"metadata":{"emulator":{"name":"functions"},"message":"[functions] Got req.url=/exiteasy-1/us-central1/lookupStudentAccess, mapping to path=/"}}
+[2026-03-30T11:16:22.503Z] [worker-pool] addWorker(us-central1-lookupStudentAccess) {"metadata":{"emulator":{"name":"functions"},"message":"[worker-pool] addWorker(us-central1-lookupStudentAccess)"}}
+[2026-03-30T11:16:22.505Z] [worker-pool] Adding worker with key us-central1-lookupStudentAccess, total=1 {"metadata":{"emulator":{"name":"functions"},"message":"[worker-pool] Adding worker with key us-central1-lookupStudentAccess, total=1"}}
+[2026-03-30T11:16:25.158Z] [runtime-status] [11400] Resolved module firebase-admin {"declared":true,"installed":true,"version":"13.7.0","resolution":"C:\\Users\\King\\Desktop\\ExitPass\\functions\\node_modules\\firebase-admin\\lib\\index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Resolved module firebase-admin {\"declared\":true,\"installed\":true,\"version\":\"13.7.0\",\"resolution\":\"C:\\\\Users\\\\King\\\\Desktop\\\\ExitPass\\\\functions\\\\node_modules\\\\firebase-admin\\\\lib\\\\index.js\"}"}}
+[2026-03-30T11:16:25.161Z] [runtime-status] [11400] Resolved module firebase-functions {"declared":true,"installed":true,"version":"7.2.2","resolution":"C:\\Users\\King\\Desktop\\ExitPass\\functions\\node_modules\\firebase-functions\\lib\\v2\\index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Resolved module firebase-functions {\"declared\":true,\"installed\":true,\"version\":\"7.2.2\",\"resolution\":\"C:\\\\Users\\\\King\\\\Desktop\\\\ExitPass\\\\functions\\\\node_modules\\\\firebase-functions\\\\lib\\\\v2\\\\index.js\"}"}}
+[2026-03-30T11:16:25.162Z] [runtime-status] [11400] Outgoing network have been stubbed. [{"name":"http","status":"mocked"},{"name":"http","status":"mocked"},{"name":"https","status":"mocked"},{"name":"https","status":"mocked"},{"name":"net","status":"mocked"}] {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Outgoing network have been stubbed. [{\"name\":\"http\",\"status\":\"mocked\"},{\"name\":\"http\",\"status\":\"mocked\"},{\"name\":\"https\",\"status\":\"mocked\"},{\"name\":\"https\",\"status\":\"mocked\"},{\"name\":\"net\",\"status\":\"mocked\"}]"}}
+[2026-03-30T11:16:25.162Z] [runtime-status] [11400] Resolved module firebase-functions {"declared":true,"installed":true,"version":"7.2.2","resolution":"C:\\Users\\King\\Desktop\\ExitPass\\functions\\node_modules\\firebase-functions\\lib\\v2\\index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Resolved module firebase-functions {\"declared\":true,\"installed\":true,\"version\":\"7.2.2\",\"resolution\":\"C:\\\\Users\\\\King\\\\Desktop\\\\ExitPass\\\\functions\\\\node_modules\\\\firebase-functions\\\\lib\\\\v2\\\\index.js\"}"}}
+[2026-03-30T11:16:25.163Z] [runtime-status] [11400] Detected firebase-functions v7+, skipping legacy stubs. {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Detected firebase-functions v7+, skipping legacy stubs."}}
+[2026-03-30T11:16:25.163Z] [runtime-status] [11400] Resolved module firebase-admin {"declared":true,"installed":true,"version":"13.7.0","resolution":"C:\\Users\\King\\Desktop\\ExitPass\\functions\\node_modules\\firebase-admin\\lib\\index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Resolved module firebase-admin {\"declared\":true,\"installed\":true,\"version\":\"13.7.0\",\"resolution\":\"C:\\\\Users\\\\King\\\\Desktop\\\\ExitPass\\\\functions\\\\node_modules\\\\firebase-admin\\\\lib\\\\index.js\"}"}}
+[2026-03-30T11:16:25.304Z] [runtime-status] [11400] Resolved module firebase-functions {"declared":true,"installed":true,"version":"7.2.2","resolution":"C:\\Users\\King\\Desktop\\ExitPass\\functions\\node_modules\\firebase-functions\\lib\\v2\\index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Resolved module firebase-functions {\"declared\":true,\"installed\":true,\"version\":\"7.2.2\",\"resolution\":\"C:\\\\Users\\\\King\\\\Desktop\\\\ExitPass\\\\functions\\\\node_modules\\\\firebase-functions\\\\lib\\\\v2\\\\index.js\"}"}}
+[2026-03-30T11:16:26.006Z] [runtime-status] [11400] firebase-admin has been stubbed. {"adminResolution":{"declared":true,"installed":true,"version":"13.7.0","resolution":"C:\\Users\\King\\Desktop\\ExitPass\\functions\\node_modules\\firebase-admin\\lib\\index.js"}} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] firebase-admin has been stubbed. {\"adminResolution\":{\"declared\":true,\"installed\":true,\"version\":\"13.7.0\",\"resolution\":\"C:\\\\Users\\\\King\\\\Desktop\\\\ExitPass\\\\functions\\\\node_modules\\\\firebase-admin\\\\lib\\\\index.js\"}}"}}
+[2026-03-30T11:16:26.025Z] [runtime-status] [11400] Functions runtime initialized. {"cwd":"C:\\Users\\King\\Desktop\\ExitPass\\functions","node_version":"24.13.0"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Functions runtime initialized. {\"cwd\":\"C:\\\\Users\\\\King\\\\Desktop\\\\ExitPass\\\\functions\",\"node_version\":\"24.13.0\"}"}}
+[2026-03-30T11:16:26.026Z] [runtime-status] [11400] Listening to port: \\?\pipe\fire_emu_2dd87fa740599363 {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[runtime-status] [11400] Listening to port: \\\\?\\pipe\\fire_emu_2dd87fa740599363"}}
+[2026-03-30T11:16:26.106Z] [worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: IDLE {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: IDLE"}}
+[2026-03-30T11:16:26.106Z] [worker-pool] submitRequest(triggerId=us-central1-lookupStudentAccess) {"metadata":{"emulator":{"name":"functions"},"message":"[worker-pool] submitRequest(triggerId=us-central1-lookupStudentAccess)"}}
+i  functions: Beginning execution of "us-central1-lookupStudentAccess" {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"Beginning execution of \"us-central1-lookupStudentAccess\""}}
+[2026-03-30T11:16:26.108Z] [worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: BUSY {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: BUSY"}}
+[2026-03-30T11:16:26.114Z] Finishing up request with event=pause {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"Finishing up request with event=pause"}}
+i  functions: Finished "us-central1-lookupStudentAccess" in 5.925ms {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"Finished \"us-central1-lookupStudentAccess\" in 5.925ms"}}
+[2026-03-30T11:16:26.115Z] [worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: IDLE {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: IDLE"}}
+[2026-03-30T11:16:26.115Z] Finishing up request with event=finish {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"Finishing up request with event=finish"}}
+[2026-03-30T11:16:26.116Z] Finishing up request with event=close {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"Finishing up request with event=close"}}
+[2026-03-30T11:16:26.116Z] [work-queue] {"queuedWork":[],"queueLength":0,"runningWork":[],"workRunningCount":0}
+[2026-03-30T11:17:55.119Z] [worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: exited {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: exited"}}
+[2026-03-30T11:17:55.392Z] [worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: FINISHED {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-lookupStudentAccess"},"extension":{},"message":"[worker-us-central1-lookupStudentAccess-188d70b1-b2d4-4014-b305-8ed12e92d7bb]: FINISHED"}}
+[2026-03-30T11:17:55.535Z] Received signal SIGHUP 1
+ 
+i  emulators: Received SIGHUP for the first time. Starting a clean shutdown. 
+i  emulators: Please wait for a clean shutdown or send the SIGHUP signal again to stop right now. 
+i  emulators: Shutting down emulators. {"metadata":{"emulator":{"name":"hub"},"message":"Shutting down emulators."}}
+i  ui: Stopping Emulator UI {"metadata":{"emulator":{"name":"ui"},"message":"Stopping Emulator UI"}}
+i  functions: Stopping Functions Emulator {"metadata":{"emulator":{"name":"functions"},"message":"Stopping Functions Emulator"}}
+i  eventarc: Stopping Eventarc Emulator {"metadata":{"emulator":{"name":"eventarc"},"message":"Stopping Eventarc Emulator"}}
+i  tasks: Stopping Cloud Tasks Emulator {"metadata":{"emulator":{"name":"tasks"},"message":"Stopping Cloud Tasks Emulator"}}
+i  hub: Stopping emulator hub {"metadata":{"emulator":{"name":"hub"},"message":"Stopping emulator hub"}}
+i  logging: Stopping Logging Emulator {"metadata":{"emulator":{"name":"logging"},"message":"Stopping Logging Emulator"}}
+[2026-03-30T11:17:56.079Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
+[2026-03-30T11:17:56.258Z] Found emulator hub locator: {"version":"15.6.0","origins":["http://127.0.0.1:4400","http://[::1]:4400"],"pid":18992}
+[2026-03-30T11:17:56.259Z] Delete emulator hub locator file: C:\Users\King\AppData\Local\Temp\hub-exiteasy-1.json

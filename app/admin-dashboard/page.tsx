@@ -75,15 +75,15 @@ function getWorkspaceTitle(role?: User['role']) {
 function getWorkspaceDescription(role?: User['role']) {
   switch (role) {
     case 'chaplaincy':
-      return 'Review every fresh request first, guide the chaplaincy queue, and keep decisions traceable.';
+      return 'Review requests and manage chaplaincy actions.';
     case 'hall_admin':
-      return 'Handle final hostel approvals, inspect student history, and keep the last decision point clean.';
+      return 'Approve hostel requests and review student records.';
     case 'security':
-      return 'Manage security access and keep gate teams aligned with the live platform.';
+      return 'Manage staff access and gate operations.';
     case 'super_admin':
-      return 'Oversee staff access, hostels, announcements, and the health of the entire pass system.';
+      return 'Manage staff, hostels, updates, and platform activity.';
     default:
-      return 'Keep the platform moving from one shared workspace.';
+      return 'Manage platform operations.';
   }
 }
 
@@ -401,27 +401,23 @@ export default function AdminDashboardPage() {
             <MetricCard
               label="Pending queue"
               value={requestsLoading ? '...' : pendingRequests.length}
-              description="Requests waiting in your approval flow."
               icon={CheckCircle2}
             />
             <MetricCard
               label="Students"
               value={studentsLoading ? '...' : students.length}
-              description="Student accounts available for review."
               icon={Users}
               accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Staff"
               value={staffLoading ? '...' : admins.length}
-              description="Active staff profiles on the platform."
               icon={ShieldCheck}
               accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Active passes"
               value={analyticsLoading ? '...' : analytics?.activePassesCount ?? 0}
-              description="Approved passes currently in motion."
               icon={BarChart3}
               accentClassName="brand-icon-chip"
             />
@@ -457,10 +453,10 @@ export default function AdminDashboardPage() {
             title="Pass approvals"
             description={
               user?.role === 'chaplaincy'
-                ? 'Chapel reviews every new request first and can deny with a reason.'
+                ? 'Review new requests.'
                 : user?.role === 'hall_admin'
-                  ? 'Only chapel-approved requests for your hostel appear here.'
-                  : 'Review chapel-stage and hall-stage approvals across the platform.'
+                  ? 'Requests approved by chaplaincy for your hostel.'
+                  : 'Review approval queues.'
             }
           />
           {requestsLoading ? (
@@ -529,7 +525,7 @@ export default function AdminDashboardPage() {
         </TabsContent>
 
         <TabsContent value="students" className="space-y-4">
-          <SectionIntro title="Students" description="View student records and recent pass history." />
+          <SectionIntro title="Students" description="View student records and pass history." />
           {selectedStudent ? (
             <Card className="brand-panel border">
               <CardHeader>
@@ -598,7 +594,7 @@ export default function AdminDashboardPage() {
         <TabsContent value="staff" className="space-y-6">
           <SectionIntro
             title="Staff access"
-            description="Create hostels, generate invite links, and track who has joined the platform."
+            description="Manage hostels, invites, and staff accounts."
           />
 
           {canManageHostels && (
@@ -634,7 +630,7 @@ export default function AdminDashboardPage() {
             <Card className="brand-panel border">
               <CardHeader>
                 <CardTitle className="text-lg text-slate-950">Create invite link</CardTitle>
-                <CardDescription className="text-slate-500">Invite new hall admins, chapel staff, or security staff.</CardDescription>
+                <CardDescription className="text-slate-500">Create a signup link for staff.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
                 <Field label="Name">
@@ -771,7 +767,7 @@ export default function AdminDashboardPage() {
         </TabsContent>
 
         <TabsContent value="updates" className="space-y-4">
-          <SectionIntro title="Updates" description="Send announcements to students and staff." />
+          <SectionIntro title="Updates" description="Send announcements." />
           <Card className="brand-panel border">
             <CardContent className="space-y-4 pt-6">
               <Field label="Title">
@@ -812,7 +808,7 @@ export default function AdminDashboardPage() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <SectionIntro title="Analytics" description="Track request volumes, approvals, and active passes." />
+          <SectionIntro title="Analytics" description="Pass and request totals." />
           {analyticsLoading ? (
             <LoadingCard label="Loading analytics..." />
           ) : analytics ? (
@@ -853,7 +849,7 @@ function SectionIntro({ title, description }: { title: string; description: stri
   return (
     <div>
       <h1 className="text-3xl font-semibold tracking-tight text-slate-950">{title}</h1>
-      <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">{description}</p>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">{description}</p>
     </div>
   );
 }

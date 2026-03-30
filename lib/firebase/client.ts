@@ -7,12 +7,16 @@ import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 import {
   firebaseFunctionsRegion,
   firebasePublicConfig,
-  firebaseUseEmulators,
+  firebaseUseAuthEmulator,
+  firebaseUseFirestoreEmulator,
+  firebaseUseFunctionsEmulator,
   getFirebaseConfigurationError,
   isFirebaseConfigured,
 } from "./config";
 
-let emulatorsConnected = false;
+let authEmulatorConnected = false;
+let firestoreEmulatorConnected = false;
+let functionsEmulatorConnected = false;
 let analyticsPromise: Promise<ReturnType<typeof getAnalytics> | null> | null = null;
 
 function assertConfigured() {
@@ -34,17 +38,24 @@ export function getFirebaseApp() {
 }
 
 function connectLocalEmulators() {
-  if (emulatorsConnected || !firebaseUseEmulators) {
-    return;
+  const app = getFirebaseApp();
+
+  if (firebaseUseAuthEmulator && !authEmulatorConnected) {
+    connectAuthEmulator(getAuth(app), "http://127.0.0.1:9099", {
+      disableWarnings: true,
+    });
+    authEmulatorConnected = true;
   }
 
-  const app = getFirebaseApp();
-  connectAuthEmulator(getAuth(app), "http://127.0.0.1:9099", {
-    disableWarnings: true,
-  });
-  connectFirestoreEmulator(getFirestore(app), "127.0.0.1", 8080);
-  connectFunctionsEmulator(getFunctions(app, firebaseFunctionsRegion), "127.0.0.1", 5001);
-  emulatorsConnected = true;
+  if (firebaseUseFirestoreEmulator && !firestoreEmulatorConnected) {
+    connectFirestoreEmulator(getFirestore(app), "127.0.0.1", 8080);
+    firestoreEmulatorConnected = true;
+  }
+
+  if (firebaseUseFunctionsEmulator && !functionsEmulatorConnected) {
+    connectFunctionsEmulator(getFunctions(app, firebaseFunctionsRegion), "127.0.0.1", 5001);
+    functionsEmulatorConnected = true;
+  }
 }
 
 export function getFirebaseAuth() {
@@ -66,7 +77,12 @@ export function getFirebaseFunctions() {
 }
 
 export async function getFirebaseAnalytics() {
-  if (typeof window === "undefined" || firebaseUseEmulators) {
+  if (
+    typeof window === "undefined" ||
+    firebaseUseAuthEmulator ||
+    firebaseUseFirestoreEmulator ||
+    firebaseUseFunctionsEmulator
+  ) {
     return null;
   }
 

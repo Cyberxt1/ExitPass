@@ -15,7 +15,7 @@ export function PageHero({
 }: {
   eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   actions?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
@@ -39,9 +39,11 @@ export function PageHero({
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
               {title}
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-              {description}
-            </p>
+            {description ? (
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+                {description}
+              </p>
+            ) : null}
           </div>
           {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
         </div>
@@ -60,7 +62,7 @@ export function MetricCard({
 }: {
   label: string;
   value: string | number;
-  description: string;
+  description?: string;
   icon: LucideIcon;
   accentClassName?: string;
 }) {
@@ -83,7 +85,7 @@ export function MetricCard({
             <Icon className="h-5 w-5 text-slate-900" />
           </div>
         </div>
-        <p className="mt-4 text-sm leading-6 text-slate-600">{description}</p>
+        {description ? <p className="mt-4 text-sm leading-6 text-slate-600">{description}</p> : null}
       </CardContent>
     </Card>
   );

@@ -16,7 +16,17 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore";
 
 import { getFirebaseAuth, getFirebaseDb } from "./firebase/client";
 import {
@@ -53,6 +63,18 @@ type PendingStudentProfile = Omit<StudentSignupInput, "password"> & {
 
 function normalizeMatric(value: string) {
   return value.trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function isValidMatric(value: string) {
+  return /^\d{2}\/\d{4}$/.test(normalizeMatric(value));
+}
+
+function getStudentAccessDirectoryId(value: string) {
+  return normalizeMatric(value).replace("/", "");
+}
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
 }
 
 function readPendingProfile(uid: string): PendingStudentProfile | null {
@@ -131,6 +153,35 @@ function buildPendingProfile(uid: string, input: StudentSignupInput): PendingStu
   };
 }
 
+function buildStudentAccessDirectoryPayload(profile: {
+  uid: string;
+  name: string;
+  email: string;
+  matric: string;
+  department?: string;
+  faculty?: string;
+  level?: string;
+  hostel?: string;
+  room?: string;
+}) {
+  const matricNormalized = normalizeMatric(profile.matric);
+
+  return {
+    directoryId: getStudentAccessDirectoryId(matricNormalized),
+    userId: profile.uid,
+    role: "student" as const,
+    name: profile.name,
+    email: profile.email.trim().toLowerCase(),
+    matric: matricNormalized,
+    matricNormalized,
+    department: profile.department || "",
+    faculty: profile.faculty || "",
+    level: profile.level || "",
+    hostel: profile.hostel || "",
+    room: profile.room || "",
+  };
+}
+
 function getReadableAuthError(error: unknown, fallback: string) {
   const code =
     typeof error === "object" &&
@@ -164,6 +215,8 @@ function getReadableAuthError(error: unknown, fallback: string) {
     case "permission-denied":
     case "firestore/permission-denied":
       return "Profile setup was blocked by Firestore rules. Deploy the latest rules and try again.";
+    case "invalid-argument":
+      return "Student ID must be in the format 12/3456.";
     case "failed-precondition":
     case "firestore/failed-precondition":
       return "Firestore is not fully ready for profile creation yet. Check project setup and try again.";
@@ -176,11 +229,19 @@ function getReadableAuthError(error: unknown, fallback: string) {
 }
 
 async function writeStudentProfile(profile: PendingStudentProfile) {
-  await setDoc(doc(getFirebaseDb(), "users", profile.uid), {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const normalizedMatric = normalizeMatric(profile.matric);
+
+  if (!isValidMatric(normalizedMatric)) {
+    throw new Error("Student ID must be in the format 12/3456.");
+  }
+
+  batch.set(doc(db, "users", profile.uid), {
     name: profile.name,
     email: profile.email,
-    matric: normalizeMatric(profile.matric),
-    matricNormalized: normalizeMatric(profile.matric),
+    matric: normalizedMatric,
+    matricNormalized: normalizedMatric,
     role: "student",
     department: profile.department,
     faculty: profile.faculty,
@@ -194,10 +255,110 @@ async function writeStudentProfile(profile: PendingStudentProfile) {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  batch.set(doc(db, "studentAccessDirectory", getStudentAccessDirectoryId(normalizedMatric)), {
+    ...buildStudentAccessDirectoryPayload(profile),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+async function syncStudentAccessDirectoryForPrivilegedUser(profile: User) {
+  if (!["hall_admin", "chaplaincy", "security", "super_admin"].includes(profile.role)) {
+    return;
+  }
+
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(query(collection(db, "users"), where("role", "==", "student")));
+
+  if (snapshot.empty) {
+    return;
+  }
+
+  const students = snapshot.docs.map((item) => ({
+    id: item.id,
+    data: item.data(),
+  }));
+
+  for (let index = 0; index < students.length; index += 400) {
+    const batch = writeBatch(db);
+    const chunk = students.slice(index, index + 400);
+
+    for (const student of chunk) {
+      const matric =
+        typeof student.data.matric === "string" ? normalizeMatric(student.data.matric) : "";
+
+      if (!matric) {
+        continue;
+      }
+
+      batch.set(doc(db, "studentAccessDirectory", getStudentAccessDirectoryId(matric)), {
+        ...buildStudentAccessDirectoryPayload({
+          uid: student.id,
+          name: typeof student.data.name === "string" ? student.data.name : "Student",
+          email: typeof student.data.email === "string" ? student.data.email : "",
+          matric,
+          department:
+            typeof student.data.department === "string" ? student.data.department : "",
+          faculty: typeof student.data.faculty === "string" ? student.data.faculty : "",
+          level: typeof student.data.level === "string" ? student.data.level : "",
+          hostel: typeof student.data.hostel === "string" ? student.data.hostel : "",
+          room: typeof student.data.room === "string" ? student.data.room : "",
+        }),
+        createdAt: student.data.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  }
+}
+
+async function syncStaffInviteDirectoryForPrivilegedUser(profile: User) {
+  if (!["hall_admin", "chaplaincy", "security", "super_admin"].includes(profile.role)) {
+    return;
+  }
+
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(collection(db, "staffInvites"));
+
+  if (snapshot.empty) {
+    return;
+  }
+
+  for (let index = 0; index < snapshot.docs.length; index += 400) {
+    const batch = writeBatch(db);
+    const chunk = snapshot.docs.slice(index, index + 400);
+
+    for (const invite of chunk) {
+      const data = invite.data();
+      const email = typeof data.email === "string" ? normalizeEmail(data.email) : "";
+
+      if (!email) {
+        continue;
+      }
+
+      batch.set(doc(db, "staffInviteDirectory", email), {
+        email,
+        role: typeof data.role === "string" ? data.role : "hall_admin",
+        name: typeof data.name === "string" ? data.name : "",
+        hostel: typeof data.hostel === "string" ? data.hostel : "",
+        hostelId: typeof data.hostelId === "string" ? data.hostelId : "",
+        status: typeof data.status === "string" ? data.status : "pending",
+        claimedBy: typeof data.claimedBy === "string" ? data.claimedBy : "",
+        claimedAt: data.claimedAt || null,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  }
 }
 
 async function validateStudentSignupEmail(email: string) {
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = normalizeEmail(email);
 
   if (
     normalizedEmail === staffPortals.admin.leadEmail ||
@@ -207,11 +368,8 @@ async function validateStudentSignupEmail(email: string) {
     throw new Error("That email is reserved for staff setup. Use the staff portal instead.");
   }
 
-  const inviteSnapshot = await getDocs(
-    query(collection(getFirebaseDb(), "staffInvites"), where("email", "==", normalizedEmail)),
-  );
-
-  const hasPendingInvite = inviteSnapshot.docs.some((item) => item.data().status === "pending");
+  const inviteSnapshot = await getDoc(doc(getFirebaseDb(), "staffInviteDirectory", normalizedEmail));
+  const hasPendingInvite = inviteSnapshot.exists() && inviteSnapshot.data().status === "pending";
 
   if (hasPendingInvite) {
     throw new Error("That email already has a staff invite. Use the matching staff portal instead.");
@@ -292,7 +450,14 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
     };
   }
 
-  return mapUser(snapshot.id, snapshot.data());
+  const profile = mapUser(snapshot.id, snapshot.data());
+
+  if (profile.disabled) {
+    await signOut(getFirebaseAuth());
+    throw new Error("This account has been disabled. Contact the platform administrator.");
+  }
+
+  return profile;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -331,6 +496,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const profile = await loadUserProfile(nextFirebaseUser);
         setUser(profile);
         setError(null);
+        void syncStudentAccessDirectoryForPrivilegedUser(profile).catch((syncError) => {
+          console.error("Student access directory sync failed", syncError);
+        });
+        void syncStaffInviteDirectoryForPrivilegedUser(profile).catch((syncError) => {
+          console.error("Staff invite directory sync failed", syncError);
+        });
       } catch (nextError) {
         console.error("Failed to load user profile", nextError);
         setError(nextError instanceof Error ? nextError.message : "Failed to load user profile.");
@@ -366,6 +537,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const profile = await loadUserProfile(credentials.user);
           setFirebaseUser(credentials.user);
           setUser(profile);
+          void syncStudentAccessDirectoryForPrivilegedUser(profile).catch((syncError) => {
+            console.error("Student access directory sync failed", syncError);
+          });
+          void syncStaffInviteDirectoryForPrivilegedUser(profile).catch((syncError) => {
+            console.error("Staff invite directory sync failed", syncError);
+          });
           return profile;
         } catch (nextError) {
           const message = getReadableAuthError(nextError, "Unable to sign in.");
@@ -383,13 +560,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(true);
         setError(null);
 
-        try {
-          const normalizedEmail = input.email.trim().toLowerCase();
-          await validateStudentSignupEmail(normalizedEmail);
+      try {
+        const normalizedEmail = input.email.trim().toLowerCase();
+        const normalizedMatric = normalizeMatric(input.matric);
 
-          const credentials = await createUserWithEmailAndPassword(
-            getFirebaseAuth(),
-            normalizedEmail,
+        if (!isValidMatric(normalizedMatric)) {
+          throw new Error("Student ID must be in the format 12/3456.");
+        }
+
+        await validateStudentSignupEmail(normalizedEmail);
+
+        const credentials = await createUserWithEmailAndPassword(
+          getFirebaseAuth(),
+          normalizedEmail,
             input.password,
           );
 
@@ -397,7 +580,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             displayName: input.name,
           });
 
-          const pendingProfile = buildPendingProfile(credentials.user.uid, input);
+          const pendingProfile = buildPendingProfile(credentials.user.uid, {
+            ...input,
+            matric: normalizedMatric,
+          });
           pendingProfile.email = normalizedEmail;
           writePendingProfile(pendingProfile);
           await credentials.user.getIdToken(true);

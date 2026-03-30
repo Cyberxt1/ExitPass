@@ -148,10 +148,9 @@ export default function RequestPassPage() {
         <SectionCard title="Request submitted" description="Your pass request is now in the approval flow.">
           <div className="rounded-[1.75rem] border border-emerald-200 bg-emerald-50 p-8 text-center">
             <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600" />
-            <h2 className="mt-5 text-2xl font-semibold text-slate-950">Your request is on the move</h2>
+            <h2 className="mt-5 text-2xl font-semibold text-slate-950">Request submitted</h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Chaplaincy will review first. Once approved there, your hall admin handles the final
-              decision before the QR code becomes available.
+              Chaplaincy reviews first, then hall admin gives the final decision.
             </p>
             <div className="mt-6 flex justify-center">
               <Button
@@ -171,9 +170,9 @@ export default function RequestPassPage() {
     <DashboardShell title="Request New Pass" contentClassName="mx-auto max-w-7xl">
       <div className="space-y-6">
         <PageHero
-          eyebrow="Trip planning"
-          title="Build a clear request"
-          description="Give staff the details they need once, get cleaner approvals, and keep your movement timeline easy to verify."
+          eyebrow="Request"
+          title="New pass request"
+          description="Enter your destination, reason, and travel time."
           actions={
             <Button
               variant="outline"
@@ -189,7 +188,7 @@ export default function RequestPassPage() {
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <SectionCard
             title="Pass details"
-            description="Choose the pass type, then set the destination, purpose, and timing."
+            description="Choose the type and fill in the trip details."
           >
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-3">
@@ -343,7 +342,7 @@ export default function RequestPassPage() {
           <div className="space-y-6">
             <SectionCard
               title="Live summary"
-              description="Review exactly what staff will see before you submit."
+              description="Preview before you submit."
             >
               <div className="space-y-4">
                 <div className="brand-panel-soft rounded-[1.75rem] border p-5">
@@ -358,9 +357,6 @@ export default function RequestPassPage() {
                     </div>
                     <StatusBadge label="Ready to review" tone="border-blue-200 bg-blue-50 text-blue-800" />
                   </div>
-                  <p className="mt-4 text-sm leading-7 text-slate-600">
-                    A clear request moves faster through chaplaincy and hall admin approval.
-                  </p>
                 </div>
 
                 <DetailBlock
@@ -389,13 +385,13 @@ export default function RequestPassPage() {
 
             <SectionCard
               title="Approval path"
-              description="Every request follows the same visible route."
+              description="Review steps."
             >
               <div className="space-y-3">
                 {[
-                  ['Step 1', 'Chaplaincy reviews the request and can approve or deny with a reason.'],
-                  ['Step 2', 'Your hall admin gives the final approval for your hostel.'],
-                  ['Step 3', 'Once approved, your QR becomes ready for the gate scanner.'],
+                  ['Chaplaincy', 'First review.'],
+                  ['Hall admin', 'Final decision.'],
+                  ['QR pass', 'Ready after approval.'],
                 ].map(([step, copy], index) => (
                   <div key={step} className="flex gap-4 rounded-[1.25rem] border border-white/70 bg-slate-50/80 p-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-slate-900 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.65)]">
@@ -410,15 +406,15 @@ export default function RequestPassPage() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Quality check" description="A few small cues to help you avoid delays.">
+            <SectionCard title="Before you submit" description="Quick checks.">
               <div className="space-y-3 text-sm leading-6 text-slate-600">
                 <div className="flex gap-3 rounded-[1.25rem] border border-white/70 bg-slate-50/80 p-4">
                   <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-                  <p>Keep your return time realistic. Staff use it to assess whether the pass duration makes sense.</p>
+                  <p>Set a realistic return time.</p>
                 </div>
                 <div className="flex gap-3 rounded-[1.25rem] border border-white/70 bg-slate-50/80 p-4">
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-                  <p>Use a specific destination and reason. Vague requests are more likely to stall or come back for clarification.</p>
+                  <p>Use a clear destination and reason.</p>
                 </div>
               </div>
             </SectionCard>

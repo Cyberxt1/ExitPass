@@ -38,7 +38,7 @@ const navItems: NavItem[] = [
     roles: ['student'],
   },
   {
-    label: 'My Passes',
+    label: 'Passes',
     href: '/dashboard/passes',
     icon: <QrCode className="w-5 h-5" />,
     roles: ['student'],
@@ -50,13 +50,13 @@ const navItems: NavItem[] = [
     roles: ['student'],
   },
   {
-    label: 'Operations Hub',
+    label: 'Operations',
     href: '/admin-dashboard',
     icon: <ShieldCheck className="w-5 h-5" />,
     roles: ['hall_admin', 'chaplaincy', 'security', 'super_admin'],
   },
   {
-    label: 'QR Scanner',
+    label: 'Scanner',
     href: '/security-scanner',
     icon: <QrCode className="w-5 h-5" />,
     roles: ['security'],
@@ -125,11 +125,10 @@ export function NavSidebar({ onItemClick }: NavSidebarProps) {
         })}
       </div>
 
-      <div className="brand-panel-soft rounded-[1.5rem] border p-4 text-sm text-slate-600">
-        <p className="font-semibold text-slate-900">Always live</p>
-        <p className="mt-2 leading-6">
-          Requests, approvals, and scans stay in one shared flow so each role sees the same truth.
-        </p>
+      <div className="brand-panel-soft rounded-[1.5rem] border p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Status</p>
+        <p className="mt-2 text-sm font-medium text-slate-900">Live sync</p>
+        <p className="mt-1 text-sm text-slate-600">Updates appear here as they happen.</p>
       </div>
 
       <Button

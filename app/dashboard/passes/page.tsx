@@ -144,7 +144,7 @@ export default function PassesPage() {
             <PageHero
               eyebrow="Pass detail"
               title={selectedPass.destination}
-              description="This view keeps the certificate, approval state, and timing in one place for easy inspection."
+              description="Pass details and QR access."
               actions={
                 <Button
                   variant="outline"
@@ -160,7 +160,7 @@ export default function PassesPage() {
             <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
               <SectionCard
                 title={getPassTypeLabel(selectedPass.type)}
-                description="Your digital pass stays readable, printable, and ready to verify."
+                description="Ready to view, print, or share."
               >
                 <div className="space-y-5">
                   <div className="brand-panel-soft rounded-[2rem] border p-6">
@@ -221,7 +221,6 @@ export default function PassesPage() {
               <div className="space-y-6">
                 <SectionCard
                   title="Pass facts"
-                  description="Everything security and staff need to verify the record."
                 >
                   <div className="grid gap-3">
                     <DetailBlock label="Departure" value={formatDateTime(selectedPass.departureDate)} />
@@ -233,7 +232,7 @@ export default function PassesPage() {
 
                 <SectionCard
                   title="Approval trail"
-                  description="A quick view of how the request moved through review."
+                  description="Who approved the request."
                 >
                   <div className="space-y-3">
                     <div className="rounded-[1.25rem] border border-white/70 bg-slate-50/90 p-4">
@@ -265,8 +264,8 @@ export default function PassesPage() {
           <>
             <PageHero
               eyebrow="Pass wallet"
-              title="Track every pass in one place"
-              description="See what is approved, what is still moving through review, and what is ready to print for the gate."
+              title="Passes"
+              description="Open any record to view details or print an approved pass."
               actions={
                 <Button
                   onClick={() => navigate('/dashboard/request')}
@@ -278,29 +277,25 @@ export default function PassesPage() {
             >
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <MetricCard
-                  label="All passes"
+                  label="Total"
                   value={passes.length}
-                  description="Every pass and request record."
                   icon={QrCode}
                 />
                 <MetricCard
-                  label="Active now"
+                  label="Active"
                   value={activeCount}
-                  description="Approved and currently valid."
                   icon={CheckCircle2}
                   accentClassName="brand-icon-chip"
                 />
                 <MetricCard
-                  label="In progress"
+                  label="In review"
                   value={passes.filter((pass) => ['pending', 'chaplaincy_required'].includes(pass.status)).length}
-                  description="Still waiting on staff review."
                   icon={Clock3}
                   accentClassName="brand-icon-chip"
                 />
                 <MetricCard
                   label="Rejected"
                   value={countPassesByStatus(passes, 'rejected')}
-                  description="Requests that need a new submission."
                   icon={XCircle}
                   accentClassName="brand-icon-chip"
                 />
@@ -323,7 +318,7 @@ export default function PassesPage() {
               <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
                 <SectionCard
                   title="Latest approved pass"
-                  description="Keep your most useful pass at the top of your wallet."
+                  description="Quick access to your latest approved pass."
                 >
                   {latestApprovedPass ? (
                     <button
@@ -341,19 +336,19 @@ export default function PassesPage() {
                       <p className="mt-3 text-sm leading-7 text-slate-600">{latestApprovedPass.reason}</p>
                       <div className="mt-5 flex items-center justify-between text-sm text-slate-500">
                         <span>{formatDate(latestApprovedPass.departureDate)}</span>
-                        <span>Open details</span>
+                        <span>View</span>
                       </div>
                     </button>
                   ) : (
                     <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm leading-7 text-slate-600">
-                      Your first approved pass will appear here as soon as staff complete the review.
+                      Your first approved pass will appear here.
                     </div>
                   )}
                 </SectionCard>
 
                 <SectionCard
                   title="All records"
-                  description="Filter by status and open any record for full detail."
+                  description="Filter and open any record."
                 >
                   <div className="mb-4 flex flex-wrap gap-2">
                     {filters.map((filter) => (
@@ -408,7 +403,7 @@ export default function PassesPage() {
             ) : (
               <EmptyState
                 title="No passes yet"
-                description="Submit your first request and your pass wallet will fill in with live status, history, and QR readiness."
+                description="Submit your first request to start your pass history."
                 action={
                   <Button
                     onClick={() => navigate('/dashboard/request')}

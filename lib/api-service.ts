@@ -157,6 +157,18 @@ function normalizeMatric(value: string) {
   return value.trim().replace(/\s+/g, "").toUpperCase();
 }
 
+function isValidMatric(value: string) {
+  return /^\d{2}\/\d{4}$/.test(normalizeMatric(value));
+}
+
+function getStudentAccessDirectoryId(value: string) {
+  return normalizeMatric(value).replace("/", "");
+}
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
 function getLeadRoleForEmail(email: string): User["role"] | null {
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -183,17 +195,51 @@ export const apiService = {
       throw new Error("Student ID is required.");
     }
 
-    return callFirebaseFunction<StudentAccessLookup>("lookupStudentAccess", {
-      matric: normalizedMatric,
-    });
+    if (!isValidMatric(normalizedMatric)) {
+      throw new Error("Student ID must be in the format 12/3456.");
+    }
+
+    const snapshot = await getDoc(
+      doc(getFirebaseDb(), "studentAccessDirectory", getStudentAccessDirectoryId(normalizedMatric)),
+    );
+
+    if (!snapshot.exists()) {
+      return {
+        exists: false,
+        user: null,
+      } satisfies StudentAccessLookup;
+    }
+
+    const data = snapshot.data();
+
+    return {
+      exists: true,
+      user: {
+        id: typeof data.userId === "string" ? data.userId : normalizedMatric,
+        name: typeof data.name === "string" ? data.name : "Student",
+        email: typeof data.email === "string" ? data.email : "",
+        matric: typeof data.matric === "string" ? data.matric : normalizedMatric,
+        department: typeof data.department === "string" ? data.department : "",
+        faculty: typeof data.faculty === "string" ? data.faculty : "",
+        level: typeof data.level === "string" ? data.level : "",
+        hostel: typeof data.hostel === "string" ? data.hostel : "",
+        room: typeof data.room === "string" ? data.room : "",
+      },
+    } satisfies StudentAccessLookup;
   },
 
   async createStudentAccessAccount(input: StudentSignupInput) {
+    const normalizedMatric = normalizeMatric(input.matric);
+
+    if (!isValidMatric(normalizedMatric)) {
+      throw new Error("Student ID must be in the format 12/3456.");
+    }
+
     const response = await callFirebaseFunction<{ user: Record<string, unknown> }, StudentSignupInput>(
       "createStudentAccount",
       {
         ...input,
-        matric: normalizeMatric(input.matric),
+        matric: normalizedMatric,
       },
     );
 
@@ -539,7 +585,9 @@ export const apiService = {
       ),
     );
 
-    return snapshot.docs.map((item) => mapUser(item.id, item.data()));
+    return snapshot.docs
+      .map((item) => mapUser(item.id, item.data()))
+      .filter((item) => !item.disabled);
   },
 
   async getHostels() {
@@ -588,7 +636,7 @@ export const apiService = {
 
   async createStaffInvite(input: CreateStaffInviteInput) {
     const actor = await getCurrentSignedInProfile();
-    const normalizedEmail = input.email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(input.email);
 
     if (!normalizedEmail) {
       throw new Error("Invite email is required.");
@@ -642,6 +690,16 @@ export const apiService = {
       updatedAt: serverTimestamp(),
     });
 
+    await setDoc(doc(getFirebaseDb(), "staffInviteDirectory", normalizedEmail), {
+      email: normalizedEmail,
+      role: input.role,
+      name: input.name?.trim() || "",
+      hostel: hostelName,
+      hostelId: input.hostelId || "",
+      status: "pending",
+      updatedAt: serverTimestamp(),
+    });
+
     const inviteSnapshot = await getDoc(inviteRef);
     return mapStaffInvite(inviteSnapshot.id, inviteSnapshot.data() || {});
   },
@@ -660,7 +718,7 @@ export const apiService = {
   },
 
   async registerStaffAccount(input: RegisterStaffInput) {
-    const normalizedEmail = input.email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(input.email);
     const name = input.name.trim();
     const password = input.password;
     const token = input.token?.trim();
@@ -730,6 +788,22 @@ export const apiService = {
         updatedAt: serverTimestamp(),
       });
 
+      await setDoc(
+        doc(getFirebaseDb(), "staffInviteDirectory", normalizedEmail),
+        {
+          email: normalizedEmail,
+          role,
+          name,
+          hostel,
+          hostelId,
+          status: "claimed",
+          claimedBy: credentials.user.uid,
+          claimedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+
       if (role === "hall_admin" && hostelId) {
         await updateDoc(doc(getFirebaseDb(), "hostels", hostelId), {
           hallAdminEmail: normalizedEmail,
@@ -755,7 +829,17 @@ export const apiService = {
   },
 
   async removeAdmin(adminId: string) {
-    await callFirebaseFunction("removeAdminUser", { adminId });
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the main admin can remove staff members.");
+    }
+
+    await updateDoc(doc(getFirebaseDb(), "users", adminId), {
+      disabled: true,
+      updatedAt: serverTimestamp(),
+    });
+
     return true;
   },
 
@@ -772,19 +856,22 @@ export const apiService = {
   },
 
   async sendAnnouncement(title: string, message: string, recipientRole?: User["role"]) {
-    const response = await callFirebaseFunction<{ announcement: Record<string, unknown> }>(
-      "sendAnnouncement",
-      {
-        title,
-        message,
-        recipientRole,
-      },
-    );
+    const actor = await getCurrentSignedInProfile();
 
-    return mapAnnouncement(
-      String(response.announcement.id || "announcement"),
-      response.announcement,
-    );
+    if (!["hall_admin", "chaplaincy", "super_admin"].includes(actor.role)) {
+      throw new Error("You do not have permission to send announcements.");
+    }
+
+    const announcementRef = await addDoc(collection(getFirebaseDb(), "announcements"), {
+      title: title.trim(),
+      message: message.trim(),
+      ...(recipientRole ? { recipientRole } : {}),
+      createdBy: actor.id,
+      createdAt: serverTimestamp(),
+    });
+
+    const snapshot = await getDoc(announcementRef);
+    return mapAnnouncement(snapshot.id, snapshot.data() || {});
   },
 
   async getAnnouncements(role?: User["role"]) {
@@ -801,19 +888,23 @@ export const apiService = {
   },
 
   async sendNotification(userId: string, title: string, message: string) {
-    const response = await callFirebaseFunction<{ notification: Record<string, unknown> }>(
-      "sendNotification",
-      {
-        userId,
-        title,
-        message,
-      },
-    );
+    const actor = await getCurrentSignedInProfile();
 
-    return mapNotification(
-      String(response.notification.id || "notification"),
-      response.notification,
-    );
+    if (!["hall_admin", "chaplaincy", "security", "super_admin"].includes(actor.role)) {
+      throw new Error("You do not have permission to send notifications.");
+    }
+
+    const notificationRef = await addDoc(collection(getFirebaseDb(), "notifications"), {
+      userId,
+      type: "info",
+      title: title.trim(),
+      message: message.trim(),
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+
+    const snapshot = await getDoc(notificationRef);
+    return mapNotification(snapshot.id, snapshot.data() || {});
   },
 
   async getUserNotifications(userId: string) {
@@ -829,19 +920,87 @@ export const apiService = {
   },
 
   async getAnalytics() {
-    const response = await callFirebaseFunction<AnalyticsSummary>("getAnalytics", {});
-    return response;
+    const [studentsSnapshot, requestsSnapshot, passesSnapshot, scansSnapshot] = await Promise.all([
+      getDocs(query(collection(getFirebaseDb(), "users"), where("role", "==", "student"))),
+      getDocs(collection(getFirebaseDb(), "passRequests")),
+      getDocs(collection(getFirebaseDb(), "passes")),
+      getDocs(collection(getFirebaseDb(), "scans")),
+    ]);
+
+    const requests = requestsSnapshot.docs.map((item) => mapPassRequest(item.id, item.data()));
+    const passes = passesSnapshot.docs.map((item) => mapPass(item.id, item.data()));
+    const now = Date.now();
+    const dayBuckets = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - (6 - index));
+      return {
+        day: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        start: date.getTime(),
+        end: date.getTime() + 24 * 60 * 60 * 1000,
+      };
+    });
+
+    return {
+      totalStudents: studentsSnapshot.size,
+      totalRequests: requests.length,
+      approvedCount: requests.filter((request) => request.status === "approved").length,
+      pendingCount: requests.filter((request) =>
+        ["pending", "chaplaincy_required"].includes(request.status),
+      ).length,
+      rejectedCount: requests.filter((request) => request.status === "rejected").length,
+      passesScanned: scansSnapshot.size,
+      activePassesCount: passes.filter((pass) => {
+        if (pass.status !== "approved") {
+          return false;
+        }
+
+        const departure = new Date(pass.departureDate).getTime();
+        const expectedReturn = new Date(pass.expectedReturnDate).getTime();
+        return departure <= now && expectedReturn >= now;
+      }).length,
+      trend: dayBuckets.map((bucket) => {
+        const dailyRequests = requests.filter((request) => {
+          const createdAt = new Date(request.createdAt).getTime();
+          return createdAt >= bucket.start && createdAt < bucket.end;
+        });
+
+        return {
+          day: bucket.day,
+          requests: dailyRequests.length,
+          approved: dailyRequests.filter((request) => request.status === "approved").length,
+          rejected: dailyRequests.filter((request) => request.status === "rejected").length,
+        };
+      }),
+    } satisfies AnalyticsSummary;
   },
 
   async verifyQRCode(qrCode: string) {
-    const response = await callFirebaseFunction<Record<string, unknown>>(
-      "verifyPassQrCode",
-      {
-        qrCode,
-      },
+    const normalizedQrCode = qrCode.trim();
+    const snapshot = await getDocs(
+      query(collection(getFirebaseDb(), "passes"), where("qrCode", "==", normalizedQrCode), limit(1)),
     );
 
-    return mapPassVerificationResult(response);
+    if (snapshot.empty) {
+      return {
+        pass: null,
+        isValid: false,
+        message: "QR code not found or invalid.",
+      };
+    }
+
+    const pass = mapPass(snapshot.docs[0].id, snapshot.docs[0].data());
+    const now = Date.now();
+    const departure = new Date(pass.departureDate).getTime();
+    const expectedReturn = new Date(pass.expectedReturnDate).getTime();
+    const isValid =
+      pass.status === "approved" && departure <= now && expectedReturn >= now;
+
+    return mapPassVerificationResult({
+      pass,
+      isValid,
+      message: isValid ? "Pass verified successfully." : "Pass is not currently active.",
+    });
   },
 
   async scanEntry(qrCode: string, location = "Main Gate") {
@@ -849,15 +1008,18 @@ export const apiService = {
   },
 
   async logScan(qrCode: string, location: string) {
-    const response = await callFirebaseFunction<{ scan: Record<string, unknown> }>(
-      "logPassScan",
-      {
-        qrCode,
-        location,
-      },
-    );
+    const verification = await this.verifyQRCode(qrCode);
+    const scanRef = await addDoc(collection(getFirebaseDb(), "scans"), {
+      qrCode: qrCode.trim(),
+      passId: verification.pass?.id || "",
+      studentId: verification.pass?.studentId || "",
+      location: location.trim() || "Main Gate",
+      status: verification.isValid ? "success" : "failed",
+      timestamp: serverTimestamp(),
+    });
 
-    return mapScanLog(String(response.scan.id || "scan"), response.scan);
+    const snapshot = await getDoc(scanRef);
+    return mapScanLog(snapshot.id, snapshot.data() || {});
   },
 
   async getScanHistory(resultLimit = 50) {
@@ -879,7 +1041,7 @@ export const apiService = {
   },
 
   async validateStudentSignupEmail(email: string) {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
 
     if (
       normalizedEmail === staffPortals.admin.leadEmail ||
@@ -892,11 +1054,8 @@ export const apiService = {
       };
     }
 
-    const snapshot = await getDocs(
-      query(collection(getFirebaseDb(), "staffInvites"), where("email", "==", normalizedEmail)),
-    );
-
-    const hasPendingInvite = snapshot.docs.some((item) => item.data().status === "pending");
+    const snapshot = await getDoc(doc(getFirebaseDb(), "staffInviteDirectory", normalizedEmail));
+    const hasPendingInvite = snapshot.exists() && snapshot.data().status === "pending";
 
     return hasPendingInvite
       ? {
@@ -906,5 +1065,51 @@ export const apiService = {
       : {
           allowed: true,
         };
+  },
+
+  async syncStudentAccessDirectory(students?: User[]) {
+    const nextStudents = students || (await this.getAllStudents());
+
+    if (!nextStudents.length) {
+      return 0;
+    }
+
+    const db = getFirebaseDb();
+    let syncedCount = 0;
+
+    for (let index = 0; index < nextStudents.length; index += 400) {
+      const batch = writeBatch(db);
+      const chunk = nextStudents.slice(index, index + 400);
+
+      for (const student of chunk) {
+        const normalizedMatric = normalizeMatric(student.matric);
+
+        if (!normalizedMatric) {
+          continue;
+        }
+
+        batch.set(doc(db, "studentAccessDirectory", getStudentAccessDirectoryId(normalizedMatric)), {
+          directoryId: getStudentAccessDirectoryId(normalizedMatric),
+          userId: student.id,
+          role: "student",
+          name: student.name,
+          email: student.email.trim().toLowerCase(),
+          matric: student.matric,
+          matricNormalized: normalizedMatric,
+          department: student.department || "",
+          faculty: student.faculty || "",
+          level: student.level || "",
+          hostel: student.hostel || "",
+          room: student.room || "",
+          createdAt: student.createdAt || serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        syncedCount += 1;
+      }
+
+      await batch.commit();
+    }
+
+    return syncedCount;
   },
 };

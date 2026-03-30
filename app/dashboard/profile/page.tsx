@@ -90,9 +90,9 @@ export default function ProfilePage() {
     <DashboardShell title="My Profile" contentClassName="mx-auto max-w-7xl">
       <div className="space-y-6">
         <PageHero
-          eyebrow="Account center"
+          eyebrow="Profile"
           title={user.name}
-          description={`${getRoleLabel(user.role)} account. Keep your identity details, access level, and movement history easy to understand.`}
+          description={`${getRoleLabel(user.role)} account`}
           actions={
             <Button
               onClick={handleLogout}
@@ -107,27 +107,23 @@ export default function ProfilePage() {
             <MetricCard
               label="Role"
               value={getRoleLabel(user.role)}
-              description="Your account access level."
               icon={ShieldCheck}
             />
             <MetricCard
-              label="Matric or ID"
+              label="Matric"
               value={user.matric || 'Pending'}
-              description="Your platform identity code."
               icon={IdCard}
               accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Approved"
               value={dataLoading ? '...' : passSummary.approved}
-              description="Passes cleared for use."
               icon={BookOpen}
               accentClassName="brand-icon-chip"
             />
             <MetricCard
               label="Open requests"
               value={dataLoading ? '...' : passSummary.pending}
-              description="Requests still under review."
               icon={User}
               accentClassName="brand-icon-chip"
             />
@@ -138,7 +134,7 @@ export default function ProfilePage() {
           <LoadingPanel label="Loading your profile summary..." />
         ) : (
           <div className="grid gap-6 xl:grid-cols-[1fr_0.92fr]">
-            <SectionCard title="Identity" description="Core account details used throughout the platform.">
+            <SectionCard title="Identity" description="Your saved account details.">
               <div className="grid gap-4 md:grid-cols-2">
                 <DetailBlock label="Full name" value={user.name} />
                 <DetailBlock label="Email address" value={user.email} />
@@ -201,8 +197,8 @@ export default function ProfilePage() {
 
             <div className="space-y-6">
               <SectionCard
-                title="Access and security"
-                description="A quick view of what this account can currently do."
+                title="Access"
+                description="Current account access."
               >
                 <div className="space-y-4">
                   <div className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4">
@@ -225,7 +221,7 @@ export default function ProfilePage() {
                       Password support
                     </p>
                     <p className="mt-2 text-sm leading-7 text-slate-600">
-                      If you lose access, use the password reset flow instead of creating a new account.
+                      Reset your password if you lose access.
                     </p>
                     <Button
                       variant="outline"
@@ -241,7 +237,7 @@ export default function ProfilePage() {
 
               <SectionCard
                 title="Movement summary"
-                description="Your pass activity at a glance."
+                description="Pass totals."
               >
                 <div className="grid gap-3">
                   <DetailBlock label="Total records" value={passSummary.total} />

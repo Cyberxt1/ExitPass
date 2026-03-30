@@ -79,17 +79,9 @@ export function MarketingShell({
                   </Link>
                 </Button>
               ) : (
-                <>
-                  <Button asChild variant="ghost" className="rounded-full text-slate-700 hover:text-slate-950">
-                    <Link href="/staff-join">Staff access</Link>
-                  </Button>
-                  <Button
-                    asChild
-                    className="brand-cta rounded-full border-0"
-                  >
-                    <Link href="/login">Student access</Link>
-                  </Button>
-                </>
+                <Button asChild className="brand-cta rounded-full border-0">
+                  <Link href="/login">Student access</Link>
+                </Button>
               )}
             </div>
           </div>

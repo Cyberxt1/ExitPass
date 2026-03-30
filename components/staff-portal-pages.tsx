@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertCircle, ArrowRight, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 import { Link } from "@/components/app-link";
 import { MarketingShell } from "@/components/marketing-shell";
@@ -16,55 +16,7 @@ import { getPortalForRole, staffPortals, type StaffPortalSlug } from "@/lib/staf
 import type { StaffInvite } from "@/lib/types";
 
 export function StaffPortalLanding({ portal }: { portal: StaffPortalSlug }) {
-  const config = staffPortals[portal];
-
-  return (
-    <MarketingShell compact>
-      <div className="mx-auto flex min-h-[76vh] max-w-4xl items-center justify-center">
-        <div className="grid w-full gap-6 md:grid-cols-[1.15fr_0.85fr]">
-          <Card className="brand-panel border backdrop-blur-xl">
-            <CardHeader className="space-y-4">
-              <div className="brand-mark flex h-14 w-14 items-center justify-center rounded-2xl text-white">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <CardTitle className="text-3xl font-semibold text-slate-950">{config.title}</CardTitle>
-              <CardDescription className="text-base text-slate-500">{config.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="brand-panel-soft rounded-3xl border p-4 text-sm text-slate-600">
-                <p className="font-medium text-slate-900">Lead email</p>
-                <p className="mt-2">{config.leadEmail}</p>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Link href={`/${portal}/login`} className="flex-1">
-                  <Button className="h-11 w-full rounded-full bg-slate-950 text-white hover:bg-slate-800">
-                    Log In
-                  </Button>
-                </Link>
-                <Link href={`/${portal}/signup`} className="flex-1">
-                  <Button variant="outline" className="h-11 w-full rounded-full border-white/80 bg-white/80 hover:bg-white">
-                    Sign Up
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="brand-panel-soft border backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle className="text-xl text-slate-950">Quick links</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-600">
-              <PortalLink href={`/${portal}/login`} label={`${config.label} login`} />
-              <PortalLink href={`/${portal}/signup`} label={`${config.label} signup`} />
-              <PortalLink href="/login" label="Student login" />
-              <PortalLink href="/signup" label="Student signup" />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </MarketingShell>
-  );
+  return <StaffPortalLogin portal={portal} />;
 }
 
 export function StaffPortalLogin({ portal }: { portal: StaffPortalSlug }) {
@@ -98,26 +50,26 @@ export function StaffPortalLogin({ portal }: { portal: StaffPortalSlug }) {
 
   return (
     <MarketingShell compact>
-      <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center">
+      <div className="mx-auto flex min-h-[70vh] max-w-lg items-center justify-center">
         <Card className="brand-panel w-full border backdrop-blur-xl">
-          <CardHeader className="space-y-3 text-center">
-            <div className="brand-mark mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-sm font-semibold text-white">
-              {config.label.slice(0, 2).toUpperCase()}
-            </div>
-            <CardTitle className="text-3xl font-semibold text-slate-950">{config.label} Log In</CardTitle>
+          <CardHeader className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+              Direct URL access
+            </p>
+            <CardTitle className="text-3xl font-semibold text-slate-950">{config.label} access</CardTitle>
             <CardDescription className="text-base text-slate-500">{config.loginDescription}</CardDescription>
           </CardHeader>
 
-          <CardContent>
+          <CardContent className="space-y-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="Email">
                 <Input
                   type="email"
-                  placeholder={config.leadEmail}
+                  placeholder="name@domain.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   disabled={isLoading}
-                  className="border-slate-200 bg-white/70"
+                  className="border-slate-200 bg-white/75"
                 />
               </Field>
 
@@ -128,18 +80,18 @@ export function StaffPortalLogin({ portal }: { portal: StaffPortalSlug }) {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   disabled={isLoading}
-                  className="border-slate-200 bg-white/70"
+                  className="border-slate-200 bg-white/75"
                 />
               </Field>
 
-              {error && <ErrorNotice message={error} />}
+              {error ? <ErrorNotice message={error} /> : null}
 
-              {!error && authError && (
+              {!error && authError ? (
                 <div className="flex gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-3">
                   <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-700" />
                   <p className="text-sm text-blue-800">{authError}</p>
                 </div>
-              )}
+              ) : null}
 
               <Button
                 type="submit"
@@ -152,21 +104,23 @@ export function StaffPortalLogin({ portal }: { portal: StaffPortalSlug }) {
                     Signing in...
                   </>
                 ) : (
-                  "Sign In"
+                  "Sign in"
                 )}
               </Button>
             </form>
 
-            <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-6 text-sm text-slate-500">
-              <Link href={`/${portal}/signup`} className="hover:text-slate-950">
-                New here? Create {config.label.toLowerCase()} access
-              </Link>
-              <Link href="/forgot-password" className="hover:text-slate-950">
-                Forgot your password?
-              </Link>
-              <Link href="/login" className="hover:text-slate-950">
-                Student login
-              </Link>
+            <div className="border-t border-slate-200 pt-5 text-sm text-slate-500">
+              <p>
+                Need to activate access?{" "}
+                <Link href={`/${portal}/signup`} className="font-medium text-slate-950">
+                  Open setup
+                </Link>
+              </p>
+              <p className="mt-2">
+                <Link href="/forgot-password" className="font-medium text-slate-950">
+                  Forgot your password?
+                </Link>
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -281,15 +235,18 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
 
   return (
     <MarketingShell compact>
-      <div className="mx-auto flex min-h-[78vh] max-w-2xl items-center justify-center">
+      <div className="mx-auto flex min-h-[78vh] max-w-xl items-center justify-center">
         <Card className="brand-panel w-full border backdrop-blur-xl">
           <CardHeader className="space-y-3">
-            <CardTitle className="text-3xl font-semibold text-slate-950">{config.label} Sign Up</CardTitle>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+              Direct URL access
+            </p>
+            <CardTitle className="text-3xl font-semibold text-slate-950">{config.label} setup</CardTitle>
             <CardDescription className="text-base text-slate-500">{subtitle}</CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-5">
-            {invite && (
+            {invite ? (
               <div className="rounded-3xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                 <div className="flex items-center gap-2 font-medium">
                   <CheckCircle2 className="h-4 w-4" />
@@ -301,13 +258,13 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
                 <p>
                   Role: <span className="font-medium capitalize">{invite.role.replace("_", " ")}</span>
                 </p>
-                {invite.hostel && (
+                {invite.hostel ? (
                   <p>
                     Hostel: <span className="font-medium">{invite.hostel}</span>
                   </p>
-                )}
+                ) : null}
               </div>
-            )}
+            ) : null}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="Full name">
@@ -315,7 +272,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
                   value={formData.name}
                   onChange={(event) => handleChange("name", event.target.value)}
                   placeholder="Enter your full name"
-                  className="border-slate-200 bg-white/70"
+                  className="border-slate-200 bg-white/75"
                   disabled={isSubmitting || inviteLoading}
                   required
                 />
@@ -326,8 +283,8 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
                   type="email"
                   value={formData.email}
                   onChange={(event) => handleChange("email", event.target.value)}
-                  placeholder={config.leadEmail}
-                  className="border-slate-200 bg-white/70"
+                  placeholder="name@domain.com"
+                  className="border-slate-200 bg-white/75"
                   disabled={isSubmitting || inviteLoading || Boolean(invite)}
                   required
                 />
@@ -340,7 +297,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
                     value={formData.password}
                     onChange={(event) => handleChange("password", event.target.value)}
                     placeholder="Minimum 8 characters"
-                    className="border-slate-200 bg-white/70"
+                    className="border-slate-200 bg-white/75"
                     disabled={isSubmitting || inviteLoading}
                     required
                   />
@@ -352,14 +309,14 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
                     value={formData.confirmPassword}
                     onChange={(event) => handleChange("confirmPassword", event.target.value)}
                     placeholder="Repeat your password"
-                    className="border-slate-200 bg-white/70"
+                    className="border-slate-200 bg-white/75"
                     disabled={isSubmitting || inviteLoading}
                     required
                   />
                 </Field>
               </div>
 
-              {error && <ErrorNotice message={error} />}
+              {error ? <ErrorNotice message={error} /> : null}
 
               <Button
                 type="submit"
@@ -372,7 +329,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
                     Setting up account...
                   </>
                 ) : (
-                  "Create Staff Account"
+                  "Create access"
                 )}
               </Button>
             </form>
@@ -383,9 +340,6 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
                 <Link href={`/${portal}/login`} className="font-medium text-slate-950">
                   Log in
                 </Link>
-              </p>
-              <p className="mt-2">
-                Lead email: <span className="font-medium">{config.leadEmail}</span>
               </p>
             </div>
           </CardContent>
@@ -398,21 +352,12 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
 function StaffSignupFallback() {
   return (
     <MarketingShell compact>
-      <div className="mx-auto flex min-h-[78vh] max-w-2xl items-center justify-center">
+      <div className="mx-auto flex min-h-[78vh] max-w-xl items-center justify-center">
         <Card className="brand-panel w-full border backdrop-blur-xl">
-          <CardContent className="py-16 text-center text-slate-500">Loading staff access...</CardContent>
+          <CardContent className="py-16 text-center text-slate-500">Loading access setup...</CardContent>
         </Card>
       </div>
     </MarketingShell>
-  );
-}
-
-function PortalLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href} className="brand-panel-soft flex items-center justify-between rounded-2xl border px-4 py-3 hover:border-blue-300">
-      <span>{label}</span>
-      <ArrowRight className="h-4 w-4" />
-    </Link>
   );
 }
 

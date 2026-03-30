@@ -138,8 +138,8 @@ export default function SecurityScannerPage() {
       <div className="space-y-6">
         <PageHero
           eyebrow="Gate operations"
-          title="Verify every pass in one clear lane"
-          description="Scan or paste the QR code, confirm the student record, and keep a visible history of every gate decision."
+          title="Gate scanner"
+          description="Scan a QR code, confirm the record, and keep a scan log."
           actions={
             verificationResult ? (
               <Button
@@ -154,29 +154,25 @@ export default function SecurityScannerPage() {
         >
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              label="Scans loaded"
+              label="Recent scans"
               value={scanHistory.length}
-              description="Recent verification records in this workspace."
               icon={History}
             />
             <MetricCard
               label="Successful"
               value={successfulScans}
-              description="Scans that passed verification."
               icon={CheckCircle2}
               accentClassName="brand-icon-chip"
             />
             <MetricCard
-              label="Current gate"
+              label="Gate"
               value="Main Gate"
-              description="Default logging location for each scan."
               icon={ShieldCheck}
               accentClassName="brand-icon-chip"
             />
             <MetricCard
-              label="Lane"
+              label="View"
               value={activeTab === 'scanner' ? 'Scanner' : 'History'}
-              description="Switch between live verification and audit trail."
               icon={ScanLine}
               accentClassName="brand-icon-chip"
             />
@@ -205,14 +201,14 @@ export default function SecurityScannerPage() {
             <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
               <SectionCard
                 title="Live scan"
-                description="Paste the QR payload or use a hardware scanner focused on the field below."
+                description="Paste a QR value or scan into the field."
               >
                 <div className="space-y-5">
                   <div className="brand-panel-soft rounded-[2rem] border p-6">
                     <div className="brand-grid rounded-[1.5rem] border border-dashed border-blue-200 bg-white/85 p-8 text-center">
                       <QrCode className="mx-auto h-16 w-16 text-slate-900" />
                       <p className="mt-4 text-sm font-medium text-slate-700">
-                        Scan or paste student pass data below.
+                        Scan or paste pass data.
                       </p>
                     </div>
 
@@ -243,7 +239,7 @@ export default function SecurityScannerPage() {
 
               <SectionCard
                 title="Verification result"
-                description="The current record stays visible until you clear it."
+                description="Latest result."
               >
                 {verificationResult ? (
                   <div className="space-y-5">
@@ -304,28 +300,28 @@ export default function SecurityScannerPage() {
                       </div>
                     ) : (
                       <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/85 p-5 text-sm leading-7 text-slate-600">
-                        No active pass record was returned for this QR input.
+                        No active pass record was found.
                       </div>
                     )}
                   </div>
                 ) : (
                   <EmptyState
                     title="No scan result yet"
-                    description="Run a scan and the pass details will appear here with a clear validity decision."
+                    description="Run a scan to view pass details."
                   />
                 )}
               </SectionCard>
             </div>
 
             <SectionCard
-              title="Gate checklist"
-              description="Keep the process consistent for every student approaching the gate."
+              title="Gate checks"
+              description="Quick checks before exit."
             >
               <div className="grid gap-3 md:grid-cols-3">
                 {[
-                  'Scan the QR directly from the student pass view when possible.',
-                  'Confirm the student name, matric number, and destination before allowing movement.',
-                  'If the pass is not cleared, ask the student to resolve it with staff before exit.',
+                  'Match the student name and matric number.',
+                  'Check destination and return time.',
+                  'If not cleared, send the student back to staff.',
                 ].map((item, index) => (
                   <Card key={item} className="brand-panel-soft border">
                     <CardContent className="p-5">
@@ -347,7 +343,7 @@ export default function SecurityScannerPage() {
               <div className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
                 <SectionCard
                   title="Latest scan"
-                  description="The newest verification stays pinned for quick review."
+                  description="Most recent scan."
                 >
                   {latestScan ? (
                     <div className="brand-panel-soft rounded-[1.75rem] border p-5">
@@ -370,7 +366,7 @@ export default function SecurityScannerPage() {
 
                 <SectionCard
                   title="Recent history"
-                  description="Every logged scan appears here with its location and result."
+                  description="Recent scan records."
                 >
                   <div className="space-y-3">
                     {scanHistory.map((scan) => (
@@ -400,7 +396,7 @@ export default function SecurityScannerPage() {
             ) : (
               <EmptyState
                 title="No scan history yet"
-                description="Once security verifies passes here, the recent history will appear with timestamps and location data."
+                description="Completed scans will appear here."
               />
             )}
           </TabsContent>

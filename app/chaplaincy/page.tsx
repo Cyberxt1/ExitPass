@@ -1,5 +1,5 @@
-import { StaffPortalLanding } from "@/components/staff-portal-pages";
+import { StaffPortalLogin } from "@/components/staff-portal-pages";
 
 export default function ChaplaincyPortalPage() {
-  return <StaffPortalLanding portal="chaplaincy" />;
+  return <StaffPortalLogin portal="chaplaincy" />;
 }

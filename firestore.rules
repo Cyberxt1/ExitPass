@@ -113,7 +113,37 @@
           && request.resource.data.email is string
           && request.resource.data.name is string
           && request.resource.data.matric is string
+          && request.resource.data.matric.matches('^[0-9]{2}/[0-9]{4}$')
           && !isLeadStaffEmail();
+      }
+
+      function canWriteStudentAccessDirectory(directoryId) {
+        return request.resource.data.userId is string
+          && request.resource.data.directoryId == directoryId
+          && directoryId.matches('^[0-9]{6}$')
+          && request.resource.data.role == 'student'
+          && request.resource.data.matric is string
+          && request.resource.data.matric.matches('^[0-9]{2}/[0-9]{4}$')
+          && request.resource.data.matricNormalized.matches('^[0-9]{2}/[0-9]{4}$')
+          && request.resource.data.name is string
+          && request.resource.data.email is string
+          && request.resource.data.department is string
+          && request.resource.data.faculty is string
+          && request.resource.data.level is string
+          && request.resource.data.hostel is string
+          && request.resource.data.room is string
+          && (
+            isPrivileged()
+            || (isSignedIn() && request.resource.data.userId == request.auth.uid)
+          );
+      }
+
+      function canWriteStaffInviteDirectory(emailId) {
+        return isSignedIn()
+          && isPrivileged()
+          && request.resource.data.email == emailId
+          && request.resource.data.role is string
+          && request.resource.data.status is string;
       }
 
       function immutablePassRequestFieldsUnchanged() {
@@ -189,13 +219,33 @@
       match /users/{userId} {
         allow read: if isOwner(userId) || isPrivileged();
         allow create: if canCreateStudentProfile(userId) || canCreateStaffProfile(userId);
-        allow update: if isOwner(userId)
-          && resource.data.role == 'student'
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.email == resource.data.email
-          && request.resource.data.permissions == resource.data.permissions
-          && request.resource.data.disabled == resource.data.disabled;
+        allow update: if (
+            isOwner(userId)
+            && resource.data.role == 'student'
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.permissions == resource.data.permissions
+            && request.resource.data.disabled == resource.data.disabled
+          ) || (
+            isSignedIn()
+            && isSuperAdmin()
+            && resource.data.role in ['hall_admin', 'chaplaincy', 'security']
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled', 'updatedAt'])
+          );
         allow delete: if false;
+      }
+
+      match /studentAccessDirectory/{directoryId} {
+        allow read: if true;
+        allow create, update: if canWriteStudentAccessDirectory(directoryId);
+        allow delete: if isSignedIn() && isPrivileged();
+      }
+
+      match /staffInviteDirectory/{emailId} {
+        allow read: if true;
+        allow create, update: if canWriteStaffInviteDirectory(emailId);
+        allow delete: if isSignedIn() && isPrivileged();
       }
 
       match /passRequests/{requestId} {
@@ -268,17 +318,32 @@
 
       match /announcements/{announcementId} {
         allow read: if isSignedIn();
-        allow write: if false;
+        allow create: if isSignedIn()
+          && isAdmin()
+          && request.resource.data.title is string
+          && request.resource.data.message is string
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update, delete: if false;
       }
 
       match /notifications/{notificationId} {
         allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isPrivileged());
-        allow write: if false;
+        allow create: if isSignedIn()
+          && isPrivileged()
+          && request.resource.data.userId is string
+          && request.resource.data.title is string
+          && request.resource.data.message is string;
+        allow update, delete: if false;
       }
 
       match /scans/{scanId} {
         allow read: if isSignedIn() && isPrivileged();
-        allow write: if false;
+        allow create: if isSignedIn()
+          && isPrivileged()
+          && request.resource.data.qrCode is string
+          && request.resource.data.location is string
+          && request.resource.data.status in ['success', 'failed'];
+        allow update, delete: if false;
       }
 
       match /{document=**} {

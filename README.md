@@ -33,6 +33,14 @@ Next.js frontend hosted on Netlify, with Firebase handling authentication, data 
 - Frontend: connect the repo to Netlify and provide the same `NEXT_PUBLIC_FIREBASE_*` environment variables there.
 - Backend: deploy Firebase Functions and Firestore rules with the Firebase CLI from the project root.
 
+## Localhost Functions Testing
+
+- If the live callable endpoint is behind the latest local code, you can keep Auth and Firestore on the real Firebase project while routing only callable Functions through the local emulator.
+- Set `NEXT_PUBLIC_FIREBASE_USE_FUNCTIONS_EMULATOR=true` in `.env.local`.
+- Leave `NEXT_PUBLIC_FIREBASE_USE_AUTH_EMULATOR=false` and `NEXT_PUBLIC_FIREBASE_USE_FIRESTORE_EMULATOR=false` unless you intentionally want the full emulator suite.
+- Start the Functions emulator from the project root with `firebase emulators:start --project exiteasy-1 --only functions`.
+- Rebuild the Functions bundle after backend changes with `npm run build` inside `functions/`.
+
 ## Notes
 
 - All mutation-heavy backend logic is callable-function based, so approvals and admin creation do not rely on direct client writes.

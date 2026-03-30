@@ -20,6 +20,7 @@ export function DashboardShell({
   contentClassName,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const desktopSidebarLeft = 'max(1rem, calc((100vw - 1800px) / 2 + 1rem))';
 
   return (
     <div className="brand-dashboard-shell min-h-screen overflow-x-hidden">
@@ -30,16 +31,19 @@ export function DashboardShell({
       </div>
       <DashboardHeader title={title} />
 
-      <div className="relative mx-auto flex w-full max-w-[1800px] gap-0 px-0 lg:gap-6 lg:px-4 xl:px-6">
-        <aside className="hidden lg:block lg:w-72 lg:shrink-0">
-          <div className="brand-panel sticky top-24 h-[calc(100vh-7rem)] overflow-hidden rounded-[2rem] border backdrop-blur-xl">
+      <div className="relative mx-auto w-full max-w-[1800px] px-0 lg:px-4 xl:px-6">
+        <aside className="hidden lg:block">
+          <div
+            className="brand-panel fixed top-24 z-30 h-[calc(100vh-7rem)] w-72 overflow-hidden rounded-[2rem] border backdrop-blur-xl"
+            style={{ left: desktopSidebarLeft }}
+          >
             <div className="h-full overflow-y-auto">
               <NavSidebar />
             </div>
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1">
+        <main className="min-w-0 lg:pl-[19rem] xl:pl-[19.5rem]">
           <div className={cn('p-4 pb-24 sm:p-6 lg:py-8', contentClassName)}>{children}</div>
         </main>
       </div>

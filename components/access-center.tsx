@@ -6,16 +6,12 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  Building2,
-  CheckCircle2,
   KeyRound,
   Loader2,
-  ShieldCheck,
   UserRoundSearch,
 } from "lucide-react";
 
 import { MarketingShell } from "@/components/marketing-shell";
-import { Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,6 +41,10 @@ function normalizeMatric(value: string) {
   return value.trim().replace(/\s+/g, "").toUpperCase();
 }
 
+function isValidMatric(value: string) {
+  return /^\d{2}\/\d{4}$/.test(normalizeMatric(value));
+}
+
 function maskEmail(email: string) {
   const [local, domain] = email.split("@");
 
@@ -61,7 +61,7 @@ function maskEmail(email: string) {
 
 export function AccessCenter() {
   const navigate = useNavigate();
-  const { login, resetPassword, error: authError } = useAuth();
+  const { login, resetPassword, signup, error: authError } = useAuth();
   const [hostels, setHostels] = useState<Hostel[]>([]);
   const [step, setStep] = useState<StudentStep>("identify");
   const [lookupUser, setLookupUser] = useState<StudentAccessLookup["user"]>(null);
@@ -101,38 +101,38 @@ export function AccessCenter() {
     switch (step) {
       case "identify":
         return {
-          title: "Enter your student ID",
-          description: "We’ll check whether your account already exists, then guide you to sign in or finish setup.",
+          title: "Student login",
+          description: "Enter your student ID to continue.",
         };
       case "existing":
         return {
           title: "Welcome back",
-          description: "Your student record was found. Enter your password to continue.",
+          description: "Enter the password linked to this student account.",
         };
       case "profile":
         return {
-          title: "Enter your full name",
-          description: "Let’s start your student profile with the name staff will see on requests and approvals.",
+          title: "Your full name",
+          description: "Add the name attached to your student record.",
         };
       case "academic":
         return {
-          title: "Add your school details",
-          description: "Enter the faculty, department, and level connected to your student ID.",
+          title: "Academic details",
+          description: "Add your faculty, department, and level.",
         };
       case "residence":
         return {
-          title: "Add your hostel details",
-          description: "Tell us the hostel name and room or hostel number tied to your accommodation.",
+          title: "Residence details",
+          description: "Add your hostel and room information.",
         };
       case "contacts":
         return {
-          title: "Add contact numbers",
-          description: "We need your phone number and your guardian’s phone number for the student record.",
+          title: "Contact details",
+          description: "Add your phone number and guardian contact.",
         };
       case "credentials":
         return {
           title: "Create your access",
-          description: "Finish with the email and password you’ll use to sign in next time.",
+          description: "Finish with the email and password for future sign-in.",
         };
     }
   }, [step]);
@@ -173,6 +173,11 @@ export function AccessCenter() {
 
     if (!normalizedId) {
       setError("Enter your student ID to continue.");
+      return;
+    }
+
+    if (!isValidMatric(normalizedId)) {
+      setError("Student ID must be in the format 12/3456.");
       return;
     }
 
@@ -337,7 +342,7 @@ export function AccessCenter() {
     setIsLoading(true);
 
     try {
-      await apiService.createStudentAccessAccount({
+      const profile = await signup({
         name: formData.name.trim(),
         email: formData.email.trim(),
         matric: formData.matric,
@@ -350,8 +355,6 @@ export function AccessCenter() {
         guardianPhone: formData.guardianPhone.trim(),
         password: formData.password,
       });
-
-      const profile = await login(formData.email, formData.password);
       navigate(getDefaultRouteForRole(profile.role));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to create your account.");
@@ -364,360 +367,337 @@ export function AccessCenter() {
 
   return (
     <MarketingShell compact>
-      <div className="mx-auto flex min-h-[78vh] max-w-6xl items-center justify-center">
-        <div className="grid w-full gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <Card className="brand-panel border backdrop-blur-xl">
-            <CardHeader className="space-y-4">
-              <div className="flex items-center gap-3">
+      <div className="mx-auto flex min-h-[78vh] max-w-2xl items-center justify-center">
+        <Card className="brand-panel w-full border backdrop-blur-xl">
+          <CardHeader className="space-y-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
                 <div className="brand-mark flex h-14 w-14 items-center justify-center rounded-2xl text-white">
                   {step === "existing" ? <KeyRound className="h-6 w-6" /> : <UserRoundSearch className="h-6 w-6" />}
                 </div>
-                <div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+                    Student access
+                  </p>
                   <CardTitle className="text-3xl font-semibold text-slate-950">{stepTitle.title}</CardTitle>
-                  <CardDescription className="mt-2 text-base text-slate-500">
+                  <CardDescription className="max-w-xl text-base text-slate-500">
                     {stepTitle.description}
                   </CardDescription>
                 </div>
               </div>
 
               {currentOnboardingIndex >= 0 ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    <span>Student setup</span>
-                    <span>
-                      Step {currentOnboardingIndex + 1} of {onboardingSteps.length}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-2">
-                    {onboardingSteps.map((item, index) => (
-                      <div key={item.id} className="space-y-2">
-                        <div
-                          className={`h-2 rounded-full ${
-                            index <= currentOnboardingIndex ? "bg-blue-600" : "bg-slate-200"
-                          }`}
-                        />
-                        <p className="text-xs text-slate-500">{item.label}</p>
-                      </div>
-                    ))}
-                  </div>
+                <div className="rounded-full border border-blue-100 bg-white/85 px-4 py-2 text-sm font-medium text-slate-600">
+                  Step {currentOnboardingIndex + 1} of {onboardingSteps.length}
                 </div>
               ) : null}
-            </CardHeader>
+            </div>
 
-            <CardContent className="space-y-5">
-              <div className="rounded-[1.5rem] border border-blue-100/90 bg-white/80 px-4 py-3 text-sm text-slate-600">
-                <p className="font-medium text-slate-950">Student ID</p>
-                <p className="mt-1">{formData.matric || normalizeMatric(studentId) || "Not entered yet"}</p>
-              </div>
-
-              {step === "identify" ? (
-                <form onSubmit={handleIdentify} className="space-y-4">
-                  <Field label="Student ID">
-                    <Input
-                      value={studentId}
-                      onChange={(event) => setStudentId(event.target.value)}
-                      placeholder="2024/001"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                      autoFocus
+            {currentOnboardingIndex >= 0 ? (
+              <div className="grid grid-cols-5 gap-2">
+                {onboardingSteps.map((item, index) => (
+                  <div key={item.id} className="space-y-2">
+                    <div
+                      className={`h-2 rounded-full ${
+                        index <= currentOnboardingIndex ? "bg-blue-600" : "bg-slate-200"
+                      }`}
                     />
-                  </Field>
+                    <p className="text-[11px] text-slate-500">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </CardHeader>
 
-                  <Button type="submit" disabled={isLoading || !studentId.trim()} className="brand-cta h-11 w-full rounded-full">
+          <CardContent className="space-y-5">
+            <div className="rounded-[1.5rem] border border-blue-100/90 bg-white/85 px-4 py-3 text-sm text-slate-600">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium text-slate-950">Student ID</p>
+                  <p className="mt-1">{formData.matric || normalizeMatric(studentId) || "Not entered yet"}</p>
+                </div>
+
+                {step === "existing" && lookupUser?.email ? (
+                  <div className="text-sm text-slate-500 sm:text-right">
+                    <p className="font-medium text-slate-950">{lookupUser.name || "Student account found"}</p>
+                    <p className="mt-1">{maskEmail(lookupUser.email)}</p>
+                  </div>
+                ) : (
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400"></p>
+                )}
+              </div>
+            </div>
+
+            {step === "identify" ? (
+              <form onSubmit={handleIdentify} className="space-y-4">
+                <Field label="Student ID">
+                  <Input
+                    value={studentId}
+                    onChange={(event) => setStudentId(event.target.value)}
+                    placeholder="12/3456"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                    autoFocus
+                  />
+                </Field>
+
+                <Button type="submit" disabled={isLoading || !studentId.trim()} className="brand-cta h-11 w-full rounded-full">
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking ID...
+                    </>
+                  ) : (
+                    <>
+                      Continue
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            ) : null}
+
+            {step === "existing" ? (
+              <form onSubmit={handleExistingLogin} className="space-y-4">
+                <Field label="Password">
+                  <Input
+                    type="password"
+                    value={existingPassword}
+                    onChange={(event) => setExistingPassword(event.target.value)}
+                    placeholder="Enter your password"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                    autoFocus
+                  />
+                </Field>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button type="submit" disabled={isLoading || !existingPassword} className="brand-cta h-11 flex-1 rounded-full">
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Checking ID...
+                        Signing in...
                       </>
                     ) : (
+                      "Sign in"
+                    )}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={handleExistingReset} disabled={isLoading} className="h-11 rounded-full">
+                    Forgot password
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+
+            {step === "profile" ? (
+              <div className="space-y-4">
+                <Field label="Full name">
+                  <Input
+                    value={formData.name}
+                    onChange={(event) => handleChange("name", event.target.value)}
+                    placeholder="Enter your full name"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                    autoFocus
+                  />
+                </Field>
+              </div>
+            ) : null}
+
+            {step === "academic" ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Faculty">
+                  <Input
+                    value={formData.faculty}
+                    onChange={(event) => handleChange("faculty", event.target.value)}
+                    placeholder="Faculty"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+                <Field label="Department">
+                  <Input
+                    value={formData.department}
+                    onChange={(event) => handleChange("department", event.target.value)}
+                    placeholder="Department"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+                <Field label="Level">
+                  <Input
+                    value={formData.level}
+                    onChange={(event) => handleChange("level", event.target.value)}
+                    placeholder="Level"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+              </div>
+            ) : null}
+
+            {step === "residence" ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Hostel">
+                  {hostels.length ? (
+                    <select
+                      value={formData.hostel}
+                      onChange={(event) => handleChange("hostel", event.target.value)}
+                      className="flex h-10 w-full rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-950"
+                      disabled={isLoading}
+                    >
+                      <option value="">Select hostel</option>
+                      {hostels.map((hostel) => (
+                        <option key={hostel.id} value={hostel.name}>
+                          {hostel.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      value={formData.hostel}
+                      onChange={(event) => handleChange("hostel", event.target.value)}
+                      placeholder="Hostel"
+                      className="border-slate-200 bg-white/80"
+                      disabled={isLoading}
+                    />
+                  )}
+                </Field>
+                <Field label="Room number">
+                  <Input
+                    value={formData.room}
+                    onChange={(event) => handleChange("room", event.target.value)}
+                    placeholder="Room number"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+              </div>
+            ) : null}
+
+            {step === "contacts" ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Phone number">
+                  <Input
+                    value={formData.phone}
+                    onChange={(event) => handleChange("phone", event.target.value)}
+                    placeholder="Phone number"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+                <Field label="Guardian phone">
+                  <Input
+                    value={formData.guardianPhone}
+                    onChange={(event) => handleChange("guardianPhone", event.target.value)}
+                    placeholder="Guardian phone"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+              </div>
+            ) : null}
+
+            {step === "credentials" ? (
+              <form onSubmit={handleCreateAccount} className="grid gap-4 md:grid-cols-2">
+                <Field label="Email address">
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(event) => handleChange("email", event.target.value)}
+                    placeholder="student@school.edu"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+                <div />
+                <Field label="Password">
+                  <Input
+                    type="password"
+                    value={formData.password}
+                    onChange={(event) => handleChange("password", event.target.value)}
+                    placeholder="Minimum 8 characters"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+                <Field label="Confirm password">
+                  <Input
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(event) => handleChange("confirmPassword", event.target.value)}
+                    placeholder="Repeat your password"
+                    className="border-slate-200 bg-white/80"
+                    disabled={isLoading}
+                  />
+                </Field>
+
+                <div className="md:col-span-2 rounded-[1.5rem] border border-blue-100/90 bg-white/80 p-4 text-sm text-slate-600">
+                  <p className="font-medium text-slate-950">Summary</p>
+                  <p className="mt-2">
+                    {formData.name}, {formData.faculty} / {formData.department}, {formData.level} level.
+                  </p>
+                  <p className="mt-1">
+                    {formData.hostel} hostel, room {formData.room}.
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <Button type="submit" disabled={isLoading} className="brand-cta h-11 w-full rounded-full">
+                    {isLoading ? (
                       <>
-                        Continue
-                        <ArrowRight className="ml-2 h-4 w-4" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating account...
                       </>
-                    )}
-                  </Button>
-                </form>
-              ) : null}
-
-              {step === "existing" ? (
-                <form onSubmit={handleExistingLogin} className="space-y-4">
-                  <div className="rounded-[1.5rem] border border-blue-100/90 bg-blue-50/70 p-4 text-sm text-blue-900">
-                    <p className="font-semibold">{lookupUser?.name || "Student account found"}</p>
-                    <p className="mt-1">
-                      Sign in with the email already linked to this ID:{" "}
-                      <span className="font-medium">{lookupUser?.email ? maskEmail(lookupUser.email) : "Not available"}</span>
-                    </p>
-                  </div>
-
-                  <Field label="Password">
-                    <Input
-                      type="password"
-                      value={existingPassword}
-                      onChange={(event) => setExistingPassword(event.target.value)}
-                      placeholder="Enter your password"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                      autoFocus
-                    />
-                  </Field>
-
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button type="submit" disabled={isLoading || !existingPassword} className="brand-cta h-11 flex-1 rounded-full">
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        "Sign In"
-                      )}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={handleExistingReset} disabled={isLoading} className="h-11 rounded-full">
-                      Forgot password
-                    </Button>
-                  </div>
-                </form>
-              ) : null}
-
-              {step === "profile" ? (
-                <div className="space-y-4">
-                  <Field label="Full name">
-                    <Input
-                      value={formData.name}
-                      onChange={(event) => handleChange("name", event.target.value)}
-                      placeholder="Ada Okafor"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                      autoFocus
-                    />
-                  </Field>
-                </div>
-              ) : null}
-
-              {step === "academic" ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Faculty">
-                    <Input
-                      value={formData.faculty}
-                      onChange={(event) => handleChange("faculty", event.target.value)}
-                      placeholder="Science"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-                  <Field label="Department">
-                    <Input
-                      value={formData.department}
-                      onChange={(event) => handleChange("department", event.target.value)}
-                      placeholder="Computer Science"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-                  <Field label="Level">
-                    <Input
-                      value={formData.level}
-                      onChange={(event) => handleChange("level", event.target.value)}
-                      placeholder="200"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-                </div>
-              ) : null}
-
-              {step === "residence" ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Hostel name">
-                    {hostels.length ? (
-                      <select
-                        value={formData.hostel}
-                        onChange={(event) => handleChange("hostel", event.target.value)}
-                        className="flex h-10 w-full rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-950"
-                        disabled={isLoading}
-                      >
-                        <option value="">Select hostel</option>
-                        {hostels.map((hostel) => (
-                          <option key={hostel.id} value={hostel.name}>
-                            {hostel.name}
-                          </option>
-                        ))}
-                      </select>
                     ) : (
-                      <Input
-                        value={formData.hostel}
-                        onChange={(event) => handleChange("hostel", event.target.value)}
-                        placeholder="Hall A"
-                        className="border-slate-200 bg-white/80"
-                        disabled={isLoading}
-                      />
+                      "Create student access"
                     )}
-                  </Field>
-                  <Field label="Room or hostel number">
-                    <Input
-                      value={formData.room}
-                      onChange={(event) => handleChange("room", event.target.value)}
-                      placeholder="301"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-                </div>
-              ) : null}
-
-              {step === "contacts" ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Phone number">
-                    <Input
-                      value={formData.phone}
-                      onChange={(event) => handleChange("phone", event.target.value)}
-                      placeholder="08012345678"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-                  <Field label="Guardian phone number">
-                    <Input
-                      value={formData.guardianPhone}
-                      onChange={(event) => handleChange("guardianPhone", event.target.value)}
-                      placeholder="08087654321"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-                </div>
-              ) : null}
-
-              {step === "credentials" ? (
-                <form onSubmit={handleCreateAccount} className="grid gap-4 md:grid-cols-2">
-                  <Field label="Email address">
-                    <Input
-                      type="email"
-                      value={formData.email}
-                      onChange={(event) => handleChange("email", event.target.value)}
-                      placeholder="student@school.edu"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-                  <div />
-                  <Field label="Password">
-                    <Input
-                      type="password"
-                      value={formData.password}
-                      onChange={(event) => handleChange("password", event.target.value)}
-                      placeholder="Minimum 8 characters"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-                  <Field label="Confirm password">
-                    <Input
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(event) => handleChange("confirmPassword", event.target.value)}
-                      placeholder="Repeat your password"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  </Field>
-
-                  <div className="md:col-span-2 rounded-[1.5rem] border border-blue-100/90 bg-white/80 p-4 text-sm text-slate-600">
-                    <p className="font-medium text-slate-950">Account summary</p>
-                    <p className="mt-2">
-                      {formData.name}, {formData.faculty} / {formData.department}, {formData.level} level.
-                    </p>
-                    <p className="mt-1">
-                      {formData.hostel} hostel, room {formData.room}.
-                    </p>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Button type="submit" disabled={isLoading} className="brand-cta h-11 w-full rounded-full">
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating account...
-                        </>
-                      ) : (
-                        "Create Student Access"
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              ) : null}
-
-              {(step === "profile" || step === "academic" || step === "residence" || step === "contacts") ? (
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button type="button" variant="outline" onClick={goBack} className="h-11 rounded-full">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button type="button" onClick={continueOnboarding} className="brand-cta h-11 flex-1 rounded-full">
-                    Continue
-                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
-              ) : null}
+              </form>
+            ) : null}
 
-              {error ? <ErrorNotice message={error} /> : null}
+            {step === "profile" || step === "academic" || step === "residence" || step === "contacts" ? (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button type="button" variant="outline" onClick={goBack} className="h-11 rounded-full">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button type="button" onClick={continueOnboarding} className="brand-cta h-11 flex-1 rounded-full">
+                  Continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            ) : null}
 
-              {!error && notice ? (
-                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-                  {notice}
-                </div>
-              ) : null}
+            {error ? <ErrorNotice message={error} /> : null}
 
-              {!error && showAuthNotice ? (
-                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-                  {authError}
-                </div>
-              ) : null}
+            {!error && notice ? (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                {notice}
+              </div>
+            ) : null}
 
-              {step !== "identify" ? (
-                <div className="border-t border-slate-200 pt-5 text-sm text-slate-500">
-                  <button type="button" onClick={resetStudentFlow} className="font-medium text-slate-950">
-                    Start again with a different student ID
-                  </button>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+            {!error && showAuthNotice ? (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                {authError}
+              </div>
+            ) : null}
 
-          <div className="space-y-6">
-            <Card className="brand-panel border">
-              <CardHeader className="space-y-3">
-                <div className="brand-icon-chip flex h-14 w-14 items-center justify-center rounded-2xl border text-slate-950">
-                  <ShieldCheck className="h-6 w-6" />
-                </div>
-                <CardTitle className="text-2xl font-semibold text-slate-950">Staff and admin access</CardTitle>
-                <CardDescription className="text-base text-slate-500">
-                  Admins, chaplaincy, and security keep a separate email-based access flow with invite activation where needed.
-                </CardDescription>
-              </CardHeader>
+            {step !== "identify" ? (
+              <div className="border-t border-slate-200 pt-5 text-sm text-slate-500">
+                <button type="button" onClick={resetStudentFlow} className="font-medium text-slate-950">
+                  Start again with a different student ID
+                </button>
+              </div>
+            ) : null}
 
-              <CardContent className="space-y-3">
-                <PortalButton href="/admin" label="Admin portal" description="Hall admin and super admin access" />
-                <PortalButton href="/chaplaincy" label="Chaplaincy portal" description="Review and chapel workflow" />
-                <PortalButton href="/security" label="Security portal" description="Scanner and gate verification" />
-                <PortalButton href="/staff-join" label="Activate staff invite" description="Create access from an invite or lead email" />
-              </CardContent>
-            </Card>
-
-            <Card className="brand-panel-soft border">
-              <CardContent className="p-6 text-sm leading-7 text-slate-600">
-                <p className="font-semibold text-slate-950">How it works</p>
-                <p className="mt-3">
-                  Students start with their ID. Existing accounts move straight to password entry,
-                  while new students finish onboarding in guided steps before creating access.
-                </p>
-                <p className="mt-3">
-                  Staff keep their own role-specific route so approvals, scanning, and admin access stay separated and secure.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+            <div className="border-t border-slate-200 pt-5 text-xs uppercase tracking-[0.22em] text-slate-400">
+              Dedicated student access form
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </MarketingShell>
   );
@@ -744,27 +724,5 @@ function ErrorNotice({ message }: { message: string }) {
       <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
       <p className="text-sm text-destructive">{message}</p>
     </div>
-  );
-}
-
-function PortalButton({
-  href,
-  label,
-  description,
-}: {
-  href: string;
-  label: string;
-  description: string;
-}) {
-  return (
-    <Link href={href} className="block rounded-[1.35rem] border border-blue-100/80 bg-white/88 p-4 transition hover:border-blue-300 hover:bg-white">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-slate-950">{label}</p>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
-        </div>
-        <Building2 className="mt-0.5 h-5 w-5 text-blue-700" />
-      </div>
-    </Link>
   );
 }

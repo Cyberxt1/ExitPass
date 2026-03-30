@@ -101,7 +101,7 @@ function StaffJoinContent() {
 
   const subtitle = invite
     ? `${invite.role.replace("_", " ")} access${invite.hostel ? ` for ${invite.hostel}` : ""}`
-    : "Lead staff can also use this page with their approved email address.";
+    : "Complete staff access setup with an approved invitation or authorized email.";
 
   return (
     <MarketingShell compact>
@@ -138,7 +138,7 @@ function StaffJoinContent() {
                 <Input
                   value={formData.name}
                   onChange={(event) => handleChange("name", event.target.value)}
-                  placeholder="David Olu"
+                  placeholder="Enter your full name"
                   className="border-slate-200 bg-white/70"
                   disabled={isSubmitting || inviteLoading}
                   required
@@ -212,11 +212,6 @@ function StaffJoinContent() {
                 <Link href="/login" className="font-medium text-slate-950">
                   Log in
                 </Link>
-              </p>
-              <p className="mt-2">
-                Lead accounts: <span className="font-medium">oluokundavid4@gmail.com</span>,{" "}
-                <span className="font-medium">xplick@gmail.com</span>, and{" "}
-                <span className="font-medium">blyinkr4@gmail.com</span>.
               </p>
             </div>
           </CardContent>

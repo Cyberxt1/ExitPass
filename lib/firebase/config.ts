@@ -2,6 +2,10 @@ const env = (import.meta as ImportMeta & {
   env: Record<string, string | undefined>;
 }).env;
 
+function readBooleanEnv(...keys: string[]) {
+  return keys.some((key) => env[key] === "true");
+}
+
 const firebasePublicConfig = {
   apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY || env.VITE_FIREBASE_API_KEY,
   authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -20,8 +24,28 @@ export const firebaseFunctionsRegion =
   env.VITE_FIREBASE_FUNCTIONS_REGION ||
   "us-central1";
 
-export const firebaseUseEmulators =
-  (env.NEXT_PUBLIC_FIREBASE_USE_EMULATORS || env.VITE_FIREBASE_USE_EMULATORS) === "true";
+export const firebaseUseEmulators = readBooleanEnv(
+  "NEXT_PUBLIC_FIREBASE_USE_EMULATORS",
+  "VITE_FIREBASE_USE_EMULATORS",
+);
+
+export const firebaseUseAuthEmulator =
+  firebaseUseEmulators ||
+  readBooleanEnv("NEXT_PUBLIC_FIREBASE_USE_AUTH_EMULATOR", "VITE_FIREBASE_USE_AUTH_EMULATOR");
+
+export const firebaseUseFirestoreEmulator =
+  firebaseUseEmulators ||
+  readBooleanEnv(
+    "NEXT_PUBLIC_FIREBASE_USE_FIRESTORE_EMULATOR",
+    "VITE_FIREBASE_USE_FIRESTORE_EMULATOR",
+  );
+
+export const firebaseUseFunctionsEmulator =
+  firebaseUseEmulators ||
+  readBooleanEnv(
+    "NEXT_PUBLIC_FIREBASE_USE_FUNCTIONS_EMULATOR",
+    "VITE_FIREBASE_USE_FUNCTIONS_EMULATOR",
+  );
 
 export const missingFirebaseEnvKeys = Object.entries(firebasePublicConfig)
   .filter(([, value]) => !value)
