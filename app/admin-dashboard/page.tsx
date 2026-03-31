@@ -558,7 +558,7 @@ export default function AdminDashboardPage() {
         setSelectedStudent(null);
       }
       await refreshSuperAdminCollections();
-    }, 'User deleted.');
+    }, 'User account disabled.');
     setProcessingId(null);
   };
 
@@ -567,14 +567,12 @@ export default function AdminDashboardPage() {
     clearNotices();
 
     try {
-      const result = await apiService.setUserPassword(targetUser.id);
-      setActionMessage(
-        `Password reset for ${targetUser.email}. Temporary password: ${result.temporaryPassword}`,
-      );
+      await apiService.sendUserPasswordReset(targetUser.email);
+      setActionMessage(`Password reset link sent to ${targetUser.email}.`);
       setActionError('');
     } catch (error) {
       setActionMessage('');
-      setActionError(error instanceof Error ? error.message : 'Unable to reset the password.');
+      setActionError(error instanceof Error ? error.message : 'Unable to send the reset link.');
     } finally {
       setProcessingId(null);
     }
@@ -1043,7 +1041,7 @@ export default function AdminDashboardPage() {
                           onClick={() => handleResetUserPassword(selectedStudent)}
                         >
                           <KeyRound className="mr-2 h-4 w-4" />
-                          Reset password
+                          Send reset link
                         </Button>
                         <Button
                           variant="outline"
@@ -1052,7 +1050,7 @@ export default function AdminDashboardPage() {
                           onClick={() => handleDeleteUser(selectedStudent.id)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          Delete user
+                          Disable account
                         </Button>
                       </>
                     ) : null}
@@ -1278,7 +1276,7 @@ export default function AdminDashboardPage() {
                             onClick={() => handleResetUserPassword(admin)}
                           >
                             <KeyRound className="mr-2 h-4 w-4" />
-                            Reset
+                            Reset link
                           </Button>
                           <Button
                             variant="ghost"

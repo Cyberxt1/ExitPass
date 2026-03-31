@@ -14,10 +14,18 @@ import {
   writeBatch,
   where,
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-
-import { getFirebaseAuth, getFirebaseDb, getFirebaseFunctions } from "./firebase/client";
+import { deleteApp, initializeApp } from "firebase/app";
 import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  sendPasswordResetEmail,
+  signOut,
+  updateProfile,
+} from "firebase/auth";
+
+import { getFirebaseAuth, getFirebaseDb } from "./firebase/client";
+import {
+  firebasePublicConfig,
   getFirebaseConfigurationError,
   isFirebaseConfigured,
 } from "./firebase/config";
@@ -42,7 +50,6 @@ import type {
   CreateStaffInviteInput,
   CreatedAdminResult,
   Notification,
-  PasswordResetResult,
   Pass,
   PassRequest,
   PassVerificationResult,
@@ -60,72 +67,6 @@ function assertFirebaseReady() {
 
   if (configurationError) {
     throw new Error(configurationError);
-  }
-}
-
-function getReadableFunctionsError(error: unknown, functionName: string) {
-  const code =
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof (error as { code?: unknown }).code === "string"
-      ? String((error as { code: string }).code)
-      : "";
-
-  const message =
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message?: unknown }).message === "string"
-      ? String((error as { message: string }).message)
-      : "";
-
-  if (message && message !== code && message !== "internal") {
-    return message;
-  }
-
-  switch (code) {
-    case "functions/unauthenticated":
-    case "unauthenticated":
-      return "You need to sign in again before using this action.";
-    case "functions/permission-denied":
-    case "permission-denied":
-      return "You do not have permission to perform this action.";
-    case "functions/invalid-argument":
-    case "invalid-argument":
-      return "Some of the details sent to the server were invalid.";
-    case "functions/not-found":
-    case "not-found":
-      return "The requested backend action could not be found.";
-    case "functions/already-exists":
-    case "already-exists":
-      return "That record already exists.";
-    case "functions/failed-precondition":
-    case "failed-precondition":
-      return "The request could not be completed because the server is not ready for it yet.";
-    case "functions/unavailable":
-    case "unavailable":
-      return "The backend is temporarily unavailable. Please try again in a moment.";
-    case "functions/internal":
-    case "internal":
-      return `The ${functionName} backend is failing before it responds. If you're on localhost, redeploy Firebase Functions so the live callable endpoint includes the latest CORS-enabled version.`;
-    default:
-      return message || `The ${functionName} request failed.`;
-  }
-}
-
-async function callFirebaseFunction<TResponse, TPayload = Record<string, unknown>>(
-  name: string,
-  payload: TPayload,
-) {
-  assertFirebaseReady();
-
-  try {
-    const callable = httpsCallable<TPayload, TResponse>(getFirebaseFunctions(), name);
-    const response = await callable(payload);
-    return response.data;
-  } catch (error) {
-    throw new Error(getReadableFunctionsError(error, name));
   }
 }
 
@@ -191,6 +132,41 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
+function generateTemporaryPassword() {
+  return `ExitPass!${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function getDefaultPermissionsForRole(role: CreateAdminInput["role"]) {
+  if (role === "super_admin") {
+    return ["approve_passes", "manage_students", "manage_admins", "view_analytics", "manage_hostels"];
+  }
+
+  if (role === "hall_admin") {
+    return ["approve_passes", "manage_students", "view_analytics"];
+  }
+
+  if (role === "chaplaincy") {
+    return ["approve_passes", "send_updates", "manage_staff"];
+  }
+
+  return ["scan_passes", "view_history", "manage_staff"];
+}
+
+async function createAuthUserWithoutSwitchingSession(name: string, email: string, password: string) {
+  const appName = `exitpass-managed-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const secondaryApp = initializeApp(firebasePublicConfig, appName);
+  const secondaryAuth = getAuth(secondaryApp);
+
+  try {
+    const credentials = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    await updateProfile(credentials.user, { displayName: name });
+    return credentials.user.uid;
+  } finally {
+    await signOut(secondaryAuth).catch(() => undefined);
+    await deleteApp(secondaryApp).catch(() => undefined);
+  }
+}
+
 export const apiService = {
   async lookupStudentAccess(matric: string) {
     const normalizedMatric = normalizeMatric(matric);
@@ -233,21 +209,71 @@ export const apiService = {
   },
 
   async createStudentAccessAccount(input: StudentSignupInput) {
+    const actor = await getCurrentSignedInProfile();
     const normalizedMatric = normalizeMatric(input.matric);
+    const normalizedEmail = normalizeEmail(input.email);
 
     if (!isValidMatric(normalizedMatric)) {
       throw new Error("Student ID must be in the format 12/3456.");
     }
 
-    const response = await callFirebaseFunction<{ user: Record<string, unknown> }, StudentSignupInput>(
-      "createStudentAccount",
-      {
-        ...input,
-        matric: normalizedMatric,
-      },
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the super admin can create student accounts from this screen.");
+    }
+
+    const existingStudentSnapshot = await getDocs(
+      query(collection(getFirebaseDb(), "users"), where("matric", "==", normalizedMatric), limit(1)),
     );
 
-    return mapUser(String(response.user.id || "student"), response.user);
+    if (!existingStudentSnapshot.empty) {
+      throw new Error("A student account already exists for that ID.");
+    }
+
+    const uid = await createAuthUserWithoutSwitchingSession(
+      input.name.trim(),
+      normalizedEmail,
+      input.password,
+    );
+
+    const userRef = doc(getFirebaseDb(), "users", uid);
+    await setDoc(userRef, {
+      name: input.name.trim(),
+      email: normalizedEmail,
+      matric: normalizedMatric,
+      matricNormalized: normalizedMatric,
+      role: "student",
+      department: input.department.trim(),
+      faculty: input.faculty.trim(),
+      level: input.level.trim(),
+      hostel: input.hostel.trim(),
+      room: input.room.trim(),
+      phone: input.phone.trim(),
+      guardianPhone: input.guardianPhone.trim(),
+      permissions: [],
+      disabled: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    await setDoc(doc(getFirebaseDb(), "studentAccessDirectory", getStudentAccessDirectoryId(normalizedMatric)), {
+      directoryId: getStudentAccessDirectoryId(normalizedMatric),
+      userId: uid,
+      role: "student",
+      name: input.name.trim(),
+      email: normalizedEmail,
+      matric: normalizedMatric,
+      matricNormalized: normalizedMatric,
+      department: input.department.trim(),
+      faculty: input.faculty.trim(),
+      level: input.level.trim(),
+      hostel: input.hostel.trim(),
+      room: input.room.trim(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const snapshot = await getDoc(userRef);
+    return mapUser(snapshot.id, snapshot.data() || {});
   },
 
   async submitPassRequest(
@@ -751,28 +777,139 @@ export const apiService = {
   },
 
   async registerStaffAccount(input: RegisterStaffInput) {
-    const response = await callFirebaseFunction<{ user: Record<string, unknown> }, RegisterStaffInput>(
-      "registerStaffAccount",
-      {
-        ...input,
-        email: normalizeEmail(input.email),
-        name: input.name.trim(),
-        token: input.token?.trim(),
-      },
+    const normalizedEmail = normalizeEmail(input.email);
+    const name = input.name.trim();
+    const password = input.password;
+    const directRole = input.directRole;
+    const token = input.token?.trim();
+
+    if (!name || !normalizedEmail || password.length < 8) {
+      throw new Error("Valid name, email, and password are required.");
+    }
+
+    let role: Exclude<User["role"], "student" | "super_admin"> | undefined = directRole;
+    let hostel = "";
+    let hostelId = "";
+    let approvalStatus: User["approvalStatus"] = "pending";
+
+    if (token) {
+      const invite = await this.getStaffInviteDetails(token);
+
+      if (!invite) {
+        throw new Error("This invite is invalid, expired, or already used.");
+      }
+
+      if (invite.email !== normalizedEmail) {
+        throw new Error("Use the invited email address to complete this signup.");
+      }
+
+      role = invite.role;
+      hostel = invite.hostel || "";
+      hostelId = invite.hostelId || "";
+      approvalStatus = "approved";
+    }
+
+    if (!role) {
+      throw new Error("Choose a valid staff portal to create this account.");
+    }
+
+    const credentials = await createUserWithEmailAndPassword(
+      getFirebaseAuth(),
+      normalizedEmail,
+      password,
     );
 
-    return mapUser(String(response.user.id || "staff"), response.user);
+    await updateProfile(credentials.user, { displayName: name });
+
+    const userRef = doc(getFirebaseDb(), "users", credentials.user.uid);
+    await setDoc(userRef, {
+      name,
+      email: normalizedEmail,
+      matric: `${role.toUpperCase().replace(/_/g, "-")}-${Date.now().toString().slice(-6)}`,
+      role,
+      hostel,
+      permissions: getDefaultPermissionsForRole(role),
+      disabled: false,
+      approvalStatus,
+      ...(approvalStatus === "approved"
+        ? {
+            approvalReviewedAt: serverTimestamp(),
+          }
+        : {}),
+      ...(token ? { inviteToken: token } : {}),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    if (token) {
+      await updateDoc(doc(getFirebaseDb(), "staffInvites", token), {
+        status: "claimed",
+        claimedBy: credentials.user.uid,
+        claimedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await setDoc(
+        doc(getFirebaseDb(), "staffInviteDirectory", normalizedEmail),
+        {
+          email: normalizedEmail,
+          role,
+          name,
+          hostel,
+          hostelId,
+          status: "claimed",
+          claimedBy: credentials.user.uid,
+          claimedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      if (role === "hall_admin" && hostelId) {
+        await updateDoc(doc(getFirebaseDb(), "hostels", hostelId), {
+          hallAdminEmail: normalizedEmail,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+
+    const snapshot = await getDoc(userRef);
+    return mapUser(snapshot.id, snapshot.data() || {});
   },
 
   async addAdmin(adminData: CreateAdminInput) {
-    const response = await callFirebaseFunction<{
-      user: Record<string, unknown>;
-      temporaryPassword: string;
-    }>("createAdminUser", adminData as unknown as Record<string, unknown>);
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the main admin can create staff accounts.");
+    }
+
+    const normalizedEmail = normalizeEmail(adminData.email);
+    const name = adminData.name.trim();
+    const temporaryPassword = generateTemporaryPassword();
+    const uid = await createAuthUserWithoutSwitchingSession(name, normalizedEmail, temporaryPassword);
+
+    const userRef = doc(getFirebaseDb(), "users", uid);
+    await setDoc(userRef, {
+      name,
+      email: normalizedEmail,
+      matric: `${adminData.role.toUpperCase().replace(/_/g, "-")}-${Date.now().toString().slice(-6)}`,
+      role: adminData.role,
+      hostel: adminData.hostel?.trim() || "",
+      permissions: adminData.permissions?.length ? adminData.permissions : getDefaultPermissionsForRole(adminData.role),
+      disabled: false,
+      approvalStatus: "approved",
+      approvalReviewedBy: actor.id,
+      approvalReviewedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const snapshot = await getDoc(userRef);
 
     return {
-      user: mapUser(String(response.user.id || "admin"), response.user),
-      temporaryPassword: response.temporaryPassword,
+      user: mapUser(snapshot.id, snapshot.data() || {}),
+      temporaryPassword,
     } satisfies CreatedAdminResult;
   },
 
@@ -792,47 +929,89 @@ export const apiService = {
   },
 
   async updateAdmin(adminId: string, data: Partial<User>) {
-    const response = await callFirebaseFunction<{ user: Record<string, unknown> }>(
-      "updateAdminUser",
-      {
-        adminId,
-        data,
-      },
-    );
+    const actor = await getCurrentSignedInProfile();
 
-    return mapUser(String(response.user.id || adminId), response.user);
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the main admin can update staff accounts.");
+    }
+
+    const allowedUpdates: Record<string, any> = {
+      updatedAt: serverTimestamp(),
+    };
+
+    for (const key of ["name", "hostel", "photo", "disabled"]) {
+      if (key in data) {
+        allowedUpdates[key] = data[key as keyof User];
+      }
+    }
+
+    if (Array.isArray(data.permissions)) {
+      allowedUpdates.permissions = data.permissions;
+    }
+
+    await updateDoc(doc(getFirebaseDb(), "users", adminId), allowedUpdates);
+    const snapshot = await getDoc(doc(getFirebaseDb(), "users", adminId));
+    return mapUser(snapshot.id, snapshot.data() || {});
   },
 
   async approveStaffAccount(userId: string) {
-    const response = await callFirebaseFunction<{ user: Record<string, unknown> }>(
-      "approveStaffAccount",
-      { userId },
-    );
+    const actor = await getCurrentSignedInProfile();
 
-    return mapUser(String(response.user.id || userId), response.user);
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the super admin can approve staff accounts.");
+    }
+
+    await updateDoc(doc(getFirebaseDb(), "users", userId), {
+      approvalStatus: "approved",
+      approvalReviewedBy: actor.id,
+      approvalReviewedAt: serverTimestamp(),
+      rejectionReason: "",
+      disabled: false,
+      updatedAt: serverTimestamp(),
+    });
+
+    const snapshot = await getDoc(doc(getFirebaseDb(), "users", userId));
+    return mapUser(snapshot.id, snapshot.data() || {});
   },
 
   async rejectStaffAccount(userId: string, reason: string) {
-    const response = await callFirebaseFunction<{ user: Record<string, unknown> }>(
-      "rejectStaffAccount",
-      { userId, reason: reason.trim() },
-    );
+    const actor = await getCurrentSignedInProfile();
 
-    return mapUser(String(response.user.id || userId), response.user);
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the super admin can reject staff accounts.");
+    }
+
+    await updateDoc(doc(getFirebaseDb(), "users", userId), {
+      approvalStatus: "rejected",
+      approvalReviewedBy: actor.id,
+      approvalReviewedAt: serverTimestamp(),
+      rejectionReason: reason.trim(),
+      disabled: true,
+      updatedAt: serverTimestamp(),
+    });
+
+    const snapshot = await getDoc(doc(getFirebaseDb(), "users", userId));
+    return mapUser(snapshot.id, snapshot.data() || {});
   },
 
   async deleteUserAccount(userId: string) {
-    await callFirebaseFunction<{ success: boolean }>("deleteUserAccount", { userId });
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the super admin can disable users.");
+    }
+
+    await updateDoc(doc(getFirebaseDb(), "users", userId), {
+      disabled: true,
+      updatedAt: serverTimestamp(),
+    });
+
     return true;
   },
 
-  async setUserPassword(userId: string, password?: string) {
-    const response = await callFirebaseFunction<PasswordResetResult>(
-      "setUserPasswordByAdmin",
-      { userId, password: password?.trim() || undefined },
-    );
-
-    return response;
+  async sendUserPasswordReset(email: string) {
+    await sendPasswordResetEmail(getFirebaseAuth(), normalizeEmail(email));
+    return true;
   },
 
   async sendAnnouncement(title: string, message: string, recipientRole?: User["role"]) {
