@@ -27,6 +27,7 @@ type PassStatus =
   | 'chaplaincy_required';
 type ApprovalStage = 'chaplaincy' | 'hall_admin' | 'completed';
 type StaffInviteStatus = 'pending' | 'claimed' | 'revoked';
+type AccountApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 type UserProfile = {
   name: string;
@@ -44,6 +45,10 @@ type UserProfile = {
   photo?: string;
   permissions?: string[];
   disabled?: boolean;
+  approvalStatus?: AccountApprovalStatus;
+  approvalReviewedBy?: string;
+  approvalReviewedAt?: unknown;
+  rejectionReason?: string;
 };
 
 type HostelRecord = {
@@ -165,6 +170,10 @@ function defaultPermissions(role: UserRole) {
     default:
       return [];
   }
+}
+
+function isStaffRole(role: UserRole) {
+  return ['hall_admin', 'chaplaincy', 'security', 'super_admin'].includes(role);
 }
 
 function getCurrentApprovalStage(requestData: Record<string, unknown>): ApprovalStage {
@@ -583,6 +592,7 @@ export const registerStaffAccount = onCall(callableOptions, async (request) => {
   let role: UserRole | undefined;
   let hostel = '';
   let hostelId = '';
+  let approvalStatus: AccountApprovalStatus = 'pending';
   let inviteSnapshot:
     | FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>
     | null = null;
@@ -607,6 +617,7 @@ export const registerStaffAccount = onCall(callableOptions, async (request) => {
     role = inviteData.role;
     hostel = inviteData.hostel || '';
     hostelId = inviteData.hostelId || '';
+    approvalStatus = 'approved';
   } else {
     role = directRole;
 
@@ -638,6 +649,12 @@ export const registerStaffAccount = onCall(callableOptions, async (request) => {
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     disabled: false,
+    approvalStatus,
+    ...(approvalStatus === 'approved'
+      ? {
+          approvalReviewedAt: FieldValue.serverTimestamp(),
+        }
+      : {}),
   };
 
   await db.collection('users').doc(createdUser.uid).set(userRecord);
@@ -661,12 +678,21 @@ export const registerStaffAccount = onCall(callableOptions, async (request) => {
     }
   }
 
-  await createNotification(
-    createdUser.uid,
-    'Staff access enabled',
-    'Your staff account is ready. You can now sign in and start working in the platform.',
-    'welcome',
-  );
+  if (approvalStatus === 'approved') {
+    await createNotification(
+      createdUser.uid,
+      'Staff access enabled',
+      'Your staff account is ready. You can now sign in and start working in the platform.',
+      'welcome',
+    );
+  } else {
+    await createNotification(
+      createdUser.uid,
+      'Approval pending',
+      'Your staff account request has been received and is waiting for super admin approval.',
+      'account_review',
+    );
+  }
 
   const snapshot = await db.collection('users').doc(createdUser.uid).get();
 
@@ -1051,6 +1077,9 @@ export const createAdminUser = onCall(callableOptions, async (request) => {
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     disabled: false,
+    approvalStatus: 'approved' as const,
+    approvalReviewedBy: request.auth?.uid || '',
+    approvalReviewedAt: FieldValue.serverTimestamp(),
   };
 
   await db.collection('users').doc(createdUser.uid).set(userRecord);
@@ -1062,6 +1091,105 @@ export const createAdminUser = onCall(callableOptions, async (request) => {
       ...serializeForClient(snapshot.data() || {}),
     },
     temporaryPassword,
+  };
+});
+
+export const approveStaffAccount = onCall(callableOptions, async (request) => {
+  const caller = await ensureRole(request, ['super_admin']);
+  const payload = request.data as Record<string, unknown>;
+  const userId = String(payload.userId || '').trim();
+
+  if (!userId) {
+    throw new HttpsError('invalid-argument', 'userId is required.');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  const snapshot = await userRef.get();
+
+  if (!snapshot.exists) {
+    throw new HttpsError('not-found', 'User account not found.');
+  }
+
+  const userData = snapshot.data() as UserProfile;
+
+  if (!isStaffRole(userData.role) || userData.role === 'super_admin') {
+    throw new HttpsError('failed-precondition', 'Only staff accounts can be approved here.');
+  }
+
+  await userRef.update({
+    approvalStatus: 'approved',
+    approvalReviewedBy: caller.uid,
+    approvalReviewedAt: FieldValue.serverTimestamp(),
+    rejectionReason: FieldValue.delete(),
+    disabled: false,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  await auth.updateUser(userId, { disabled: false });
+  await createNotification(
+    userId,
+    'Staff account approved',
+    'Your staff account has been approved by the super admin. You can now sign in.',
+    'account_review',
+  );
+
+  const updatedSnapshot = await userRef.get();
+
+  return {
+    user: {
+      id: updatedSnapshot.id,
+      ...serializeForClient(updatedSnapshot.data() || {}),
+    },
+  };
+});
+
+export const rejectStaffAccount = onCall(callableOptions, async (request) => {
+  const caller = await ensureRole(request, ['super_admin']);
+  const payload = request.data as Record<string, unknown>;
+  const userId = String(payload.userId || '').trim();
+  const reason = String(payload.reason || '').trim();
+
+  if (!userId || !reason) {
+    throw new HttpsError('invalid-argument', 'userId and reason are required.');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  const snapshot = await userRef.get();
+
+  if (!snapshot.exists) {
+    throw new HttpsError('not-found', 'User account not found.');
+  }
+
+  const userData = snapshot.data() as UserProfile;
+
+  if (!isStaffRole(userData.role) || userData.role === 'super_admin') {
+    throw new HttpsError('failed-precondition', 'Only staff accounts can be rejected here.');
+  }
+
+  await userRef.update({
+    approvalStatus: 'rejected',
+    approvalReviewedBy: caller.uid,
+    approvalReviewedAt: FieldValue.serverTimestamp(),
+    rejectionReason: reason,
+    disabled: true,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  await auth.updateUser(userId, { disabled: true });
+  await createNotification(
+    userId,
+    'Staff account rejected',
+    `Your staff account request was rejected. Reason: ${reason}`,
+    'account_review',
+  );
+
+  const updatedSnapshot = await userRef.get();
+
+  return {
+    user: {
+      id: updatedSnapshot.id,
+      ...serializeForClient(updatedSnapshot.data() || {}),
+    },
   };
 });
 
@@ -1078,10 +1206,97 @@ export const removeAdminUser = onCall(callableOptions, async (request) => {
     throw new HttpsError('failed-precondition', 'You cannot remove your own admin account.');
   }
 
-  await db.collection('users').doc(adminId).delete();
-  await auth.deleteUser(adminId);
+  await db.collection('users').doc(adminId).update({
+    disabled: true,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await auth.updateUser(adminId, { disabled: true });
 
   return { success: true };
+});
+
+export const deleteUserAccount = onCall(callableOptions, async (request) => {
+  const caller = await ensureRole(request, ['super_admin']);
+  const payload = request.data as Record<string, unknown>;
+  const userId = String(payload.userId || '').trim();
+
+  if (!userId) {
+    throw new HttpsError('invalid-argument', 'userId is required.');
+  }
+
+  if (caller.uid === userId) {
+    throw new HttpsError('failed-precondition', 'You cannot delete your own account.');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  const snapshot = await userRef.get();
+
+  if (!snapshot.exists) {
+    throw new HttpsError('not-found', 'User account not found.');
+  }
+
+  const userData = snapshot.data() as UserProfile;
+
+  if (userData.role === 'student') {
+    const matricNormalized = normalizeMatric(userData.matric || '');
+
+    if (matricNormalized) {
+      await db.collection('studentAccessDirectory').doc(matricNormalized.replace('/', '')).delete();
+    }
+  }
+
+  if (userData.role === 'hall_admin' && userData.email) {
+    const hostelsSnapshot = await db
+      .collection('hostels')
+      .where('hallAdminEmail', '==', userData.email)
+      .get();
+
+    for (const hostel of hostelsSnapshot.docs) {
+      await hostel.ref.update({
+        hallAdminEmail: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  await userRef.delete();
+  await auth.deleteUser(userId);
+
+  return { success: true };
+});
+
+export const setUserPasswordByAdmin = onCall(callableOptions, async (request) => {
+  const caller = await ensureRole(request, ['super_admin']);
+  const payload = request.data as Record<string, unknown>;
+  const userId = String(payload.userId || '').trim();
+  const requestedPassword = String(payload.password || '').trim();
+  const temporaryPassword = requestedPassword || generateTemporaryPassword();
+
+  if (!userId) {
+    throw new HttpsError('invalid-argument', 'userId is required.');
+  }
+
+  if (caller.uid === userId) {
+    throw new HttpsError('failed-precondition', 'Use the normal account settings flow to change your own password.');
+  }
+
+  if (temporaryPassword.length < 8) {
+    throw new HttpsError('invalid-argument', 'Password must be at least 8 characters long.');
+  }
+
+  await auth.updateUser(userId, { password: temporaryPassword, disabled: false });
+
+  await db.collection('users').doc(userId).set(
+    {
+      disabled: false,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return {
+    temporaryPassword,
+  };
 });
 
 export const updateAdminUser = onCall(callableOptions, async (request) => {

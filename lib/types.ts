@@ -18,6 +18,7 @@ export type PassStatus =
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type ApprovalStage = "chaplaincy" | "hall_admin" | "completed";
 export type StaffInviteStatus = "pending" | "claimed" | "revoked";
+export type AccountApprovalStatus = "pending" | "approved" | "rejected";
 
 export type ISODateString = string;
 
@@ -39,6 +40,10 @@ export interface User {
   createdAt?: ISODateString;
   updatedAt?: ISODateString;
   disabled?: boolean;
+  approvalStatus?: AccountApprovalStatus;
+  approvalReviewedBy?: string;
+  approvalReviewedAt?: ISODateString;
+  rejectionReason?: string;
 }
 
 export interface ApprovalRecord {
@@ -196,6 +201,10 @@ export interface RegisterStaffInput {
   password: string;
   directRole?: Exclude<UserRole, "student" | "super_admin">;
   token?: string;
+}
+
+export interface PasswordResetResult {
+  temporaryPassword: string;
 }
 
 export interface StaffInviteLookup {

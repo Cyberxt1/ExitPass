@@ -7,12 +7,14 @@ import {
   CheckCircle2,
   Copy,
   Eye,
+  KeyRound,
   Loader2,
   Plus,
   Send,
   ShieldCheck,
+  Trash2,
+  UserPlus,
   Users,
-  X,
   XCircle,
 } from 'lucide-react';
 
@@ -31,17 +33,20 @@ import { getPortalForRole } from '@/lib/staff-portals';
 import type {
   AnalyticsSummary,
   Announcement,
+  CreateAdminInput,
   CreateStaffInviteInput,
   Hostel,
   PassRequest,
   StaffInvite,
+  StudentSignupInput,
   StudentDetails,
   User,
 } from '@/lib/types';
 
-type TabId = 'approvals' | 'students' | 'staff' | 'updates' | 'analytics';
+type TabId = 'governance' | 'approvals' | 'students' | 'staff' | 'updates' | 'analytics';
 
 const TAB_LABELS: Record<TabId, string> = {
+  governance: 'Governance',
   approvals: 'Approvals',
   students: 'Students',
   staff: 'Staff',
@@ -50,6 +55,10 @@ const TAB_LABELS: Record<TabId, string> = {
 };
 
 function getDefaultTab(role?: User['role'] | null): TabId {
+  if (role === 'super_admin') {
+    return 'governance';
+  }
+
   if (role === 'security') {
     return 'staff';
   }
@@ -131,11 +140,26 @@ function getAllowedInviteRoles(role?: User['role']) {
   return [];
 }
 
+const INITIAL_STUDENT_FORM: StudentSignupInput = {
+  name: '',
+  email: '',
+  matric: '',
+  department: '',
+  faculty: '',
+  level: '',
+  hostel: '',
+  room: '',
+  phone: '',
+  guardianPhone: '',
+  password: '',
+};
+
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>('approvals');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [pendingStaffApprovals, setPendingStaffApprovals] = useState<User[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PassRequest[]>([]);
   const [students, setStudents] = useState<User[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<StudentDetails | null>(null);
@@ -153,10 +177,24 @@ export default function AdminDashboardPage() {
     role: 'hall_admin',
     hostelId: '',
   });
+  const [staffAccountForm, setStaffAccountForm] = useState<{
+    name: string;
+    email: string;
+    role: Exclude<CreateAdminInput['role'], 'student' | 'super_admin'>;
+    hostel: string;
+  }>({
+    name: '',
+    email: '',
+    role: 'hall_admin',
+    hostel: '',
+  });
+  const [studentAccountForm, setStudentAccountForm] = useState<StudentSignupInput>(INITIAL_STUDENT_FORM);
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
+  const [staffApprovalReasons, setStaffApprovalReasons] = useState<Record<string, string>>({});
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [staffLoading, setStaffLoading] = useState(true);
+  const [governanceLoading, setGovernanceLoading] = useState(true);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState('');
@@ -165,19 +203,28 @@ export default function AdminDashboardPage() {
   const canManageApprovals = ['hall_admin', 'chaplaincy', 'super_admin'].includes(user?.role || '');
   const canManageStudents = canManageApprovals;
   const canManageStaff = ['chaplaincy', 'security', 'super_admin'].includes(user?.role || '');
+  const canManageGovernance = user?.role === 'super_admin';
   const canManageHostels = user?.role === 'super_admin';
   const canSendUpdates = canManageApprovals;
   const canViewAnalytics = ['hall_admin', 'chaplaincy', 'security', 'super_admin'].includes(user?.role || '');
 
   const availableTabs = useMemo<TabId[]>(() => {
     const nextTabs: TabId[] = [];
+    if (canManageGovernance) nextTabs.push('governance');
     if (canManageApprovals) nextTabs.push('approvals');
     if (canManageStudents) nextTabs.push('students');
     if (canManageStaff) nextTabs.push('staff');
     if (canSendUpdates) nextTabs.push('updates');
     if (canViewAnalytics) nextTabs.push('analytics');
     return nextTabs;
-  }, [canManageApprovals, canManageStaff, canManageStudents, canSendUpdates, canViewAnalytics]);
+  }, [
+    canManageApprovals,
+    canManageGovernance,
+    canManageStaff,
+    canManageStudents,
+    canSendUpdates,
+    canViewAnalytics,
+  ]);
 
   const inviteOptions = useMemo(() => getAllowedInviteRoles(user?.role), [user?.role]);
 
@@ -215,6 +262,7 @@ export default function AdminDashboardPage() {
       return;
     }
 
+    if (activeTab === 'governance') void loadGovernance();
     if (activeTab === 'approvals') void loadRequests();
     if (activeTab === 'students') void loadStudents();
     if (activeTab === 'staff') void loadStaff();
@@ -280,6 +328,26 @@ export default function AdminDashboardPage() {
       setInvites(nextInvites);
     } finally {
       setStaffLoading(false);
+    }
+  };
+
+  const loadGovernance = async () => {
+    setGovernanceLoading(true);
+    try {
+      const [nextPendingStaff, nextAdmins, nextStudents, nextHostels, nextInvites] = await Promise.all([
+        apiService.getPendingStaffApprovals(),
+        apiService.getAdmins(),
+        apiService.getAllStudents(),
+        apiService.getHostels(),
+        apiService.getStaffInvites(),
+      ]);
+      setPendingStaffApprovals(nextPendingStaff);
+      setAdmins(nextAdmins);
+      setStudents(nextStudents);
+      setHostels(nextHostels);
+      setInvites(nextInvites);
+    } finally {
+      setGovernanceLoading(false);
     }
   };
 
@@ -369,11 +437,147 @@ export default function AdminDashboardPage() {
     setActionError('');
   };
 
-  const handleRemoveAdmin = async (adminId: string) => {
+  const refreshSuperAdminCollections = async () => {
+    if (user?.role === 'super_admin') {
+      await loadGovernance();
+      return;
+    }
+
+    await Promise.all([loadStaff(), loadStudents()]);
+  };
+
+  const handleApproveStaffAccount = async (userId: string) => {
+    setProcessingId(userId);
     await withActionFeedback(async () => {
-      await apiService.removeAdmin(adminId);
-      await loadStaff();
-    }, 'Staff member removed.');
+      await apiService.approveStaffAccount(userId);
+      setStaffApprovalReasons((current) => ({ ...current, [userId]: '' }));
+      await refreshSuperAdminCollections();
+    }, 'Staff account approved.');
+    setProcessingId(null);
+  };
+
+  const handleRejectStaffAccount = async (userId: string) => {
+    const reason = staffApprovalReasons[userId]?.trim();
+
+    if (!reason) {
+      setActionError('Add a reason before rejecting this staff account.');
+      return;
+    }
+
+    setProcessingId(userId);
+    await withActionFeedback(async () => {
+      await apiService.rejectStaffAccount(userId, reason);
+      setStaffApprovalReasons((current) => ({ ...current, [userId]: '' }));
+      await refreshSuperAdminCollections();
+    }, 'Staff account rejected.');
+    setProcessingId(null);
+  };
+
+  const handleCreateStaffAccount = async () => {
+    if (!staffAccountForm.name.trim() || !staffAccountForm.email.trim()) {
+      return;
+    }
+
+    if (staffAccountForm.role === 'hall_admin' && !staffAccountForm.hostel) {
+      setActionError('Pick a hostel before creating a hall admin account.');
+      return;
+    }
+
+    clearNotices();
+
+    try {
+      const created = await apiService.addAdmin({
+        name: staffAccountForm.name.trim(),
+        email: staffAccountForm.email.trim(),
+        role: staffAccountForm.role,
+        hostel: staffAccountForm.role === 'hall_admin' ? staffAccountForm.hostel : '',
+      });
+
+      setStaffAccountForm({
+        name: '',
+        email: '',
+        role: 'hall_admin',
+        hostel: '',
+      });
+      await refreshSuperAdminCollections();
+      setActionMessage(
+        `Staff account created for ${created.user.email}. Temporary password: ${created.temporaryPassword}`,
+      );
+      setActionError('');
+    } catch (error) {
+      setActionMessage('');
+      setActionError(error instanceof Error ? error.message : 'Unable to create the staff account.');
+    }
+  };
+
+  const handleCreateStudentAccount = async () => {
+    const requiredValues = [
+      studentAccountForm.name,
+      studentAccountForm.email,
+      studentAccountForm.matric,
+      studentAccountForm.department,
+      studentAccountForm.faculty,
+      studentAccountForm.level,
+      studentAccountForm.hostel,
+      studentAccountForm.room,
+      studentAccountForm.phone,
+      studentAccountForm.guardianPhone,
+      studentAccountForm.password,
+    ];
+
+    if (requiredValues.some((value) => !value.trim())) {
+      setActionError('Complete every student account field before creating the account.');
+      return;
+    }
+
+    await withActionFeedback(async () => {
+      await apiService.createStudentAccessAccount({
+        ...studentAccountForm,
+        name: studentAccountForm.name.trim(),
+        email: studentAccountForm.email.trim(),
+        matric: studentAccountForm.matric.trim(),
+        department: studentAccountForm.department.trim(),
+        faculty: studentAccountForm.faculty.trim(),
+        level: studentAccountForm.level.trim(),
+        hostel: studentAccountForm.hostel.trim(),
+        room: studentAccountForm.room.trim(),
+        phone: studentAccountForm.phone.trim(),
+        guardianPhone: studentAccountForm.guardianPhone.trim(),
+        password: studentAccountForm.password,
+      });
+      setStudentAccountForm(INITIAL_STUDENT_FORM);
+      await refreshSuperAdminCollections();
+    }, 'Student account created.');
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    setProcessingId(userId);
+    await withActionFeedback(async () => {
+      await apiService.deleteUserAccount(userId);
+      if (selectedStudent?.id === userId) {
+        setSelectedStudent(null);
+      }
+      await refreshSuperAdminCollections();
+    }, 'User deleted.');
+    setProcessingId(null);
+  };
+
+  const handleResetUserPassword = async (targetUser: User) => {
+    setProcessingId(targetUser.id);
+    clearNotices();
+
+    try {
+      const result = await apiService.setUserPassword(targetUser.id);
+      setActionMessage(
+        `Password reset for ${targetUser.email}. Temporary password: ${result.temporaryPassword}`,
+      );
+      setActionError('');
+    } catch (error) {
+      setActionMessage('');
+      setActionError(error instanceof Error ? error.message : 'Unable to reset the password.');
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const handleSendAnnouncement = async () => {
@@ -436,7 +640,7 @@ export default function AdminDashboardPage() {
         ) : null}
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabId)} className="w-full">
-        <TabsList className="brand-panel mb-8 grid h-auto w-full gap-2 rounded-[1.5rem] border p-2 sm:grid-cols-3 lg:grid-cols-5">
+        <TabsList className="brand-panel mb-8 grid h-auto w-full gap-2 rounded-[1.5rem] border p-2 sm:grid-cols-3 lg:grid-cols-6">
           {availableTabs.map((tab) => (
             <TabsTrigger
               key={tab}
@@ -447,6 +651,301 @@ export default function AdminDashboardPage() {
             </TabsTrigger>
           ))}
         </TabsList>
+
+        <TabsContent value="governance" className="space-y-6">
+          <SectionIntro
+            title="Super admin governance"
+            description="Approve newly created staff accounts, create managed users, and keep platform access under control."
+          />
+
+          {governanceLoading ? (
+            <LoadingCard label="Loading governance tools..." />
+          ) : (
+            <>
+              <Card className="brand-panel border">
+                <CardHeader>
+                  <CardTitle className="text-lg text-slate-950">Pending staff approvals</CardTitle>
+                  <CardDescription className="text-slate-500">
+                    New public staff signups stay here until a super admin approves them.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {pendingStaffApprovals.length ? (
+                    pendingStaffApprovals.map((account) => (
+                      <div key={account.id} className="rounded-[1.5rem] border border-blue-100/80 bg-white/80 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-base font-semibold text-slate-950">{account.name}</p>
+                            <p className="text-sm text-slate-500">
+                              {account.email} • {getRoleLabel(account.role)}
+                              {account.hostel ? ` • ${account.hostel}` : ''}
+                            </p>
+                            <p className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-400">
+                              Requested {formatDateTime(account.createdAt)}
+                            </p>
+                          </div>
+                          <StatusBadge
+                            label={account.approvalStatus === 'pending' ? 'Pending review' : 'Reviewed'}
+                            tone="border-blue-200 bg-blue-50 text-blue-800"
+                          />
+                        </div>
+                        <Textarea
+                          value={staffApprovalReasons[account.id] || ''}
+                          onChange={(event) =>
+                            setStaffApprovalReasons((current) => ({
+                              ...current,
+                              [account.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Add a rejection reason if you want to deny this account..."
+                          rows={3}
+                          className="mt-4 rounded-[1.25rem] border-slate-200 bg-white/85"
+                        />
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Button
+                            onClick={() => handleApproveStaffAccount(account.id)}
+                            disabled={processingId === account.id}
+                            className="brand-cta rounded-full border-0"
+                          >
+                            {processingId === account.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                            )}
+                            Approve account
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
+                            disabled={processingId === account.id || !staffApprovalReasons[account.id]?.trim()}
+                            onClick={() => handleRejectStaffAccount(account.id)}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Reject account
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500">No staff accounts are waiting for approval right now.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <Card className="brand-panel border">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-slate-950">Create staff account</CardTitle>
+                    <CardDescription className="text-slate-500">
+                      Create a staff account directly and hand over the temporary password.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 md:grid-cols-2">
+                    <Field label="Full name">
+                      <Input
+                        value={staffAccountForm.name}
+                        onChange={(event) =>
+                          setStaffAccountForm((current) => ({ ...current, name: event.target.value }))
+                        }
+                        placeholder="Enter full name"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Email">
+                      <Input
+                        type="email"
+                        value={staffAccountForm.email}
+                        onChange={(event) =>
+                          setStaffAccountForm((current) => ({ ...current, email: event.target.value }))
+                        }
+                        placeholder="staff@school.edu"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Role">
+                      <select
+                        value={staffAccountForm.role}
+                        onChange={(event) =>
+                          setStaffAccountForm((current) => ({
+                            ...current,
+                            role: event.target.value as Exclude<CreateAdminInput['role'], 'student' | 'super_admin'>,
+                            hostel: event.target.value === 'hall_admin' ? current.hostel : '',
+                          }))
+                        }
+                        className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950"
+                      >
+                        <option value="hall_admin">Hall Admin</option>
+                        <option value="chaplaincy">Chaplaincy</option>
+                        <option value="security">Security</option>
+                      </select>
+                    </Field>
+                    <Field label="Hostel">
+                      <select
+                        value={staffAccountForm.hostel}
+                        onChange={(event) =>
+                          setStaffAccountForm((current) => ({ ...current, hostel: event.target.value }))
+                        }
+                        disabled={staffAccountForm.role !== 'hall_admin'}
+                        className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <option value="">Select hostel</option>
+                        {hostels.map((hostel) => (
+                          <option key={hostel.id} value={hostel.name}>
+                            {hostel.name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <div className="md:col-span-2">
+                      <Button onClick={handleCreateStaffAccount} className="brand-cta h-11 w-full rounded-full border-0">
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Create staff account
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="brand-panel border">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-slate-950">Create student account</CardTitle>
+                    <CardDescription className="text-slate-500">
+                      Add a student directly when onboarding needs to be handled by the platform team.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 md:grid-cols-2">
+                    <Field label="Full name">
+                      <Input
+                        value={studentAccountForm.name}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, name: event.target.value }))
+                        }
+                        placeholder="Student name"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Email">
+                      <Input
+                        type="email"
+                        value={studentAccountForm.email}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, email: event.target.value }))
+                        }
+                        placeholder="student@school.edu"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Matric">
+                      <Input
+                        value={studentAccountForm.matric}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, matric: event.target.value }))
+                        }
+                        placeholder="12/3456"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Level">
+                      <Input
+                        value={studentAccountForm.level}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, level: event.target.value }))
+                        }
+                        placeholder="100"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Faculty">
+                      <Input
+                        value={studentAccountForm.faculty}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, faculty: event.target.value }))
+                        }
+                        placeholder="Faculty"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Department">
+                      <Input
+                        value={studentAccountForm.department}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, department: event.target.value }))
+                        }
+                        placeholder="Department"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Hostel">
+                      <select
+                        value={studentAccountForm.hostel}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, hostel: event.target.value }))
+                        }
+                        className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950"
+                      >
+                        <option value="">Select hostel</option>
+                        {hostels.map((hostel) => (
+                          <option key={hostel.id} value={hostel.name}>
+                            {hostel.name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Room">
+                      <Input
+                        value={studentAccountForm.room}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, room: event.target.value }))
+                        }
+                        placeholder="Room / bed space"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Phone">
+                      <Input
+                        value={studentAccountForm.phone}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, phone: event.target.value }))
+                        }
+                        placeholder="Phone number"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Guardian phone">
+                      <Input
+                        value={studentAccountForm.guardianPhone}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({
+                            ...current,
+                            guardianPhone: event.target.value,
+                          }))
+                        }
+                        placeholder="Guardian phone"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <Field label="Password">
+                      <Input
+                        type="password"
+                        value={studentAccountForm.password}
+                        onChange={(event) =>
+                          setStudentAccountForm((current) => ({ ...current, password: event.target.value }))
+                        }
+                        placeholder="Minimum 8 characters"
+                        className="border-slate-200 bg-white/85"
+                      />
+                    </Field>
+                    <div className="md:col-span-2">
+                      <Button onClick={handleCreateStudentAccount} className="brand-cta h-11 w-full rounded-full border-0">
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Create student account
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </TabsContent>
 
         <TabsContent value="approvals" className="space-y-4">
           <SectionIntro
@@ -527,16 +1026,40 @@ export default function AdminDashboardPage() {
         <TabsContent value="students" className="space-y-4">
           <SectionIntro title="Students" description="View student records and pass history." />
           {selectedStudent ? (
-            <Card className="brand-panel border">
+              <Card className="brand-panel border">
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <CardTitle className="text-slate-950">{selectedStudent.name}</CardTitle>
                     <CardDescription className="text-slate-500">{selectedStudent.matric}</CardDescription>
                   </div>
-                  <Button variant="outline" className="rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => setSelectedStudent(null)}>
-                    Back
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {user?.role === 'super_admin' ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="rounded-full border-white/80 bg-white/80 hover:bg-white"
+                          disabled={processingId === selectedStudent.id}
+                          onClick={() => handleResetUserPassword(selectedStudent)}
+                        >
+                          <KeyRound className="mr-2 h-4 w-4" />
+                          Reset password
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
+                          disabled={processingId === selectedStudent.id}
+                          onClick={() => handleDeleteUser(selectedStudent.id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete user
+                        </Button>
+                      </>
+                    ) : null}
+                    <Button variant="outline" className="rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => setSelectedStudent(null)}>
+                      Back
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -580,10 +1103,32 @@ export default function AdminDashboardPage() {
                       <p className="text-xs text-slate-500">{student.matric}</p>
                     </div>
                     <p className="text-sm text-slate-500">{student.hostel || 'No hostel set'}</p>
-                    <Button variant="outline" className="w-full rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => handleViewStudent(student.id)}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View details
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" className="flex-1 rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => handleViewStudent(student.id)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View details
+                      </Button>
+                      {user?.role === 'super_admin' ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            className="rounded-full border-white/80 bg-white/80 hover:bg-white"
+                            disabled={processingId === student.id}
+                            onClick={() => handleResetUserPassword(student)}
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
+                            disabled={processingId === student.id}
+                            onClick={() => handleDeleteUser(student.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -724,9 +1269,27 @@ export default function AdminDashboardPage() {
                         </p>
                       </div>
                       {user?.role === 'super_admin' && user.id !== admin.id && (
-                        <Button variant="ghost" size="sm" className="rounded-full hover:bg-slate-100" onClick={() => handleRemoveAdmin(admin.id)}>
-                          <X className="h-4 w-4 text-slate-700" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full border-white/80 bg-white/80 hover:bg-white"
+                            disabled={processingId === admin.id}
+                            onClick={() => handleResetUserPassword(admin)}
+                          >
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            Reset
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full hover:bg-slate-100"
+                            disabled={processingId === admin.id}
+                            onClick={() => handleDeleteUser(admin.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-slate-700" />
+                          </Button>
+                        </div>
                       )}
                     </div>
                   ))}

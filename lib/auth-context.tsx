@@ -452,6 +452,20 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
 
   const profile = mapUser(snapshot.id, snapshot.data());
 
+  if (profile.role !== "student" && profile.approvalStatus === "pending") {
+    await signOut(getFirebaseAuth());
+    throw new Error("Your staff account is waiting for super admin approval.");
+  }
+
+  if (profile.role !== "student" && profile.approvalStatus === "rejected") {
+    await signOut(getFirebaseAuth());
+    throw new Error(
+      profile.rejectionReason
+        ? `Your staff account request was rejected: ${profile.rejectionReason}`
+        : "Your staff account request was rejected. Contact the super admin.",
+    );
+  }
+
   if (profile.disabled) {
     await signOut(getFirebaseAuth());
     throw new Error("This account has been disabled. Contact the platform administrator.");

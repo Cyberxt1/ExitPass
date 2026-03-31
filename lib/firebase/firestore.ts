@@ -111,6 +111,15 @@ export function mapUser(id: string, value: UnknownRecord): User {
     createdAt: toIsoString(value.createdAt, new Date().toISOString()),
     updatedAt: toIsoString(value.updatedAt, new Date().toISOString()),
     disabled: Boolean(value.disabled),
+    approvalStatus:
+      typeof value.approvalStatus === "string"
+        ? (value.approvalStatus as User["approvalStatus"])
+        : undefined,
+    approvalReviewedBy:
+      typeof value.approvalReviewedBy === "string" ? value.approvalReviewedBy : undefined,
+    approvalReviewedAt: value.approvalReviewedAt ? toIsoString(value.approvalReviewedAt) : undefined,
+    rejectionReason:
+      typeof value.rejectionReason === "string" ? value.rejectionReason : undefined,
   };
 }
 
@@ -257,10 +266,10 @@ export function mapStaffInvite(id: string, value: UnknownRecord): StaffInvite {
   };
 }
 
-export function sortByCreatedAtDesc<T extends { createdAt: string }>(items: T[]) {
+export function sortByCreatedAtDesc<T extends { createdAt?: string }>(items: T[]) {
   return [...items].sort(
     (left, right) =>
-      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime(),
   );
 }
 

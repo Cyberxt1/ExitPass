@@ -15,7 +15,6 @@ import {
   where,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 
 import { getFirebaseAuth, getFirebaseDb, getFirebaseFunctions } from "./firebase/client";
 import {
@@ -43,6 +42,7 @@ import type {
   CreateStaffInviteInput,
   CreatedAdminResult,
   Notification,
+  PasswordResetResult,
   Pass,
   PassRequest,
   PassVerificationResult,
@@ -533,6 +533,13 @@ export const apiService = {
     return snapshot.docs.map((item) => mapUser(item.id, item.data()));
   },
 
+  async getAllUsers() {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(collection(getFirebaseDb(), "users"));
+    return sortByCreatedAtDesc(snapshot.docs.map((item) => mapUser(item.id, item.data())));
+  },
+
   async getStudentDetails(studentId: string) {
     assertFirebaseReady();
 
@@ -569,7 +576,29 @@ export const apiService = {
 
     return snapshot.docs
       .map((item) => mapUser(item.id, item.data()))
-      .filter((item) => !item.disabled);
+      .filter(
+        (item) =>
+          !item.disabled &&
+          item.approvalStatus !== "pending" &&
+          item.approvalStatus !== "rejected",
+      );
+  },
+
+  async getPendingStaffApprovals() {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(
+      query(
+        collection(getFirebaseDb(), "users"),
+        where("role", "in", ["hall_admin", "chaplaincy", "security"]),
+      ),
+    );
+
+    return sortByCreatedAtDesc(
+      snapshot.docs
+        .map((item) => mapUser(item.id, item.data()))
+        .filter((item) => item.approvalStatus === "pending"),
+    );
   },
 
   async getHostels() {
@@ -700,101 +729,17 @@ export const apiService = {
   },
 
   async registerStaffAccount(input: RegisterStaffInput) {
-    const normalizedEmail = normalizeEmail(input.email);
-    const name = input.name.trim();
-    const password = input.password;
-    const directRole = input.directRole;
-    const token = input.token?.trim();
-
-    if (!name || !normalizedEmail || password.length < 8) {
-      throw new Error("Valid name, email, and password are required.");
-    }
-
-    let role: Exclude<User["role"], "student" | "super_admin"> | undefined = directRole;
-    let hostel = "";
-    let hostelId = "";
-
-    if (token) {
-      const invite = await this.getStaffInviteDetails(token);
-
-      if (!invite) {
-        throw new Error("This invite is invalid, expired, or already used.");
-      }
-
-      if (invite.email !== normalizedEmail) {
-        throw new Error("Use the invited email address to complete this signup.");
-      }
-
-      role = invite.role;
-      hostel = invite.hostel || "";
-      hostelId = invite.hostelId || "";
-    }
-
-    if (!role) {
-      throw new Error("Choose a valid staff portal to create this account.");
-    }
-
-    const credentials = await createUserWithEmailAndPassword(
-      getFirebaseAuth(),
-      normalizedEmail,
-      password,
+    const response = await callFirebaseFunction<{ user: Record<string, unknown> }, RegisterStaffInput>(
+      "registerStaffAccount",
+      {
+        ...input,
+        email: normalizeEmail(input.email),
+        name: input.name.trim(),
+        token: input.token?.trim(),
+      },
     );
 
-    await updateProfile(credentials.user, { displayName: name });
-
-    const userRef = doc(getFirebaseDb(), "users", credentials.user.uid);
-    await setDoc(userRef, {
-      name,
-      email: normalizedEmail,
-      matric: `${role.toUpperCase().replace(/_/g, "-")}-${Date.now().toString().slice(-6)}`,
-      role,
-      hostel,
-      permissions:
-        role === "hall_admin"
-          ? ["approve_passes", "manage_students", "view_analytics"]
-          : role === "chaplaincy"
-            ? ["approve_passes", "send_updates", "manage_staff"]
-            : ["scan_passes", "view_history", "manage_staff"],
-      disabled: false,
-      ...(token ? { inviteToken: token } : {}),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    if (token) {
-      await updateDoc(doc(getFirebaseDb(), "staffInvites", token), {
-        status: "claimed",
-        claimedBy: credentials.user.uid,
-        claimedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      await setDoc(
-        doc(getFirebaseDb(), "staffInviteDirectory", normalizedEmail),
-        {
-          email: normalizedEmail,
-          role,
-          name,
-          hostel,
-          hostelId,
-          status: "claimed",
-          claimedBy: credentials.user.uid,
-          claimedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      if (role === "hall_admin" && hostelId) {
-        await updateDoc(doc(getFirebaseDb(), "hostels", hostelId), {
-          hallAdminEmail: normalizedEmail,
-          updatedAt: serverTimestamp(),
-        });
-      }
-    }
-
-    const snapshot = await getDoc(userRef);
-    return mapUser(snapshot.id, snapshot.data() || {});
+    return mapUser(String(response.user.id || "staff"), response.user);
   },
 
   async addAdmin(adminData: CreateAdminInput) {
@@ -834,6 +779,38 @@ export const apiService = {
     );
 
     return mapUser(String(response.user.id || adminId), response.user);
+  },
+
+  async approveStaffAccount(userId: string) {
+    const response = await callFirebaseFunction<{ user: Record<string, unknown> }>(
+      "approveStaffAccount",
+      { userId },
+    );
+
+    return mapUser(String(response.user.id || userId), response.user);
+  },
+
+  async rejectStaffAccount(userId: string, reason: string) {
+    const response = await callFirebaseFunction<{ user: Record<string, unknown> }>(
+      "rejectStaffAccount",
+      { userId, reason: reason.trim() },
+    );
+
+    return mapUser(String(response.user.id || userId), response.user);
+  },
+
+  async deleteUserAccount(userId: string) {
+    await callFirebaseFunction<{ success: boolean }>("deleteUserAccount", { userId });
+    return true;
+  },
+
+  async setUserPassword(userId: string, password?: string) {
+    const response = await callFirebaseFunction<PasswordResetResult>(
+      "setUserPasswordByAdmin",
+      { userId, password: password?.trim() || undefined },
+    );
+
+    return response;
   },
 
   async sendAnnouncement(title: string, message: string, recipientRole?: User["role"]) {
