@@ -30,6 +30,7 @@ export function DashboardShell({
         <div className="brand-line absolute inset-x-[-8%] top-24 h-px rotate-[7deg]" />
       </div>
       <DashboardHeader title={title} />
+      <div aria-hidden className="hidden h-[4.5rem] lg:block" />
 
       <div className="relative mx-auto w-full max-w-[1800px] px-0 lg:px-4 xl:px-6">
         <aside className="hidden lg:block">

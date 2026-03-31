@@ -23,7 +23,7 @@ export function DashboardHeader({ title }: DashboardHeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-blue-100/70 bg-white/82 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-blue-100/70 bg-white/82 backdrop-blur-xl lg:fixed lg:inset-x-0 lg:top-0 lg:z-50">
       <div className="mx-auto flex h-[4.5rem] max-w-[1800px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" className="hidden items-center gap-3 md:flex">
