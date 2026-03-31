@@ -810,7 +810,7 @@ export const apiService = {
     let role: Exclude<User["role"], "student" | "super_admin"> | undefined = directRole;
     let hostel = "";
     let hostelId = "";
-    let approvalStatus: User["approvalStatus"] = "pending";
+    const approvalStatus: User["approvalStatus"] = "approved";
 
     if (token) {
       const invite = await this.getStaffInviteDetails(token);
@@ -826,7 +826,6 @@ export const apiService = {
       role = invite.role;
       hostel = invite.hostel || "";
       hostelId = invite.hostelId || "";
-      approvalStatus = "approved";
     }
 
     if (!role) {
@@ -851,11 +850,7 @@ export const apiService = {
       permissions: getDefaultPermissionsForRole(role),
       disabled: false,
       approvalStatus,
-      ...(approvalStatus === "approved"
-        ? {
-            approvalReviewedAt: serverTimestamp(),
-          }
-        : {}),
+      approvalReviewedAt: serverTimestamp(),
       ...(token ? { inviteToken: token } : {}),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),

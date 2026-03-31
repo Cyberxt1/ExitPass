@@ -489,11 +489,6 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
         }
       : profile;
 
-  if (resolvedProfile.role !== "student" && resolvedProfile.approvalStatus === "pending") {
-    await signOut(getFirebaseAuth());
-    throw new Error("Your staff account is waiting for super admin approval.");
-  }
-
   if (resolvedProfile.role !== "student" && resolvedProfile.approvalStatus === "rejected") {
     await signOut(getFirebaseAuth());
     throw new Error(

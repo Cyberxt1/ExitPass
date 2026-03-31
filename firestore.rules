@@ -97,9 +97,9 @@
           );
       }
 
-      function isDirectPendingStaffCreate() {
+      function isDirectApprovedStaffCreate() {
         return request.resource.data.role in ['hall_admin', 'chaplaincy', 'security']
-          && request.resource.data.approvalStatus == 'pending'
+          && request.resource.data.approvalStatus == 'approved'
           && request.resource.data.disabled == false;
       }
 
@@ -112,7 +112,7 @@
           && (
             isApprovedLeadStaffCreate()
             || hasValidInviteForStaffCreate()
-            || isDirectPendingStaffCreate()
+            || isDirectApprovedStaffCreate()
           );
       }
 
