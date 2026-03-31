@@ -17,7 +17,9 @@
       }
 
       function role() {
-        return currentUserProfile() != null && currentUserProfile().role is string
+        return isSignedIn() && request.auth.token.email == 'oluokundavid4@gmail.com'
+          ? 'super_admin'
+          : currentUserProfile() != null && currentUserProfile().role is string
           ? currentUserProfile().role
           : (isSignedIn() ? request.auth.token.role : null);
       }

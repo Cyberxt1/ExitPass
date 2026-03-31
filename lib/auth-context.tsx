@@ -77,11 +77,33 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
+function getPrivilegedRoleByEmail(email?: string | null): User["role"] | null {
+  const normalizedEmail = normalizeEmail(email || "");
+
+  if (normalizedEmail === staffPortals.admin.leadEmail) {
+    return "super_admin";
+  }
+
+  if (normalizedEmail === staffPortals.security.leadEmail) {
+    return "security";
+  }
+
+  if (normalizedEmail === staffPortals.chaplaincy.leadEmail) {
+    return "chaplaincy";
+  }
+
+  return null;
+}
+
 async function getRoleFromAuth(firebaseUser: FirebaseUser): Promise<User["role"]> {
   const tokenResult = await firebaseUser.getIdTokenResult();
   const claimedRole = tokenResult.claims.role;
 
-  return typeof claimedRole === "string" ? (claimedRole as User["role"]) : "student";
+  if (typeof claimedRole === "string") {
+    return claimedRole as User["role"];
+  }
+
+  return getPrivilegedRoleByEmail(firebaseUser.email) || "student";
 }
 
 function readPendingProfile(uid: string): PendingStudentProfile | null {

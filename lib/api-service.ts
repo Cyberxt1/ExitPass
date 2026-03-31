@@ -70,6 +70,28 @@ function assertFirebaseReady() {
   }
 }
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function getPrivilegedRoleByEmail(email?: string | null): User["role"] | null {
+  const normalizedEmail = normalizeEmail(email || "");
+
+  if (normalizedEmail === staffPortals.admin.leadEmail) {
+    return "super_admin";
+  }
+
+  if (normalizedEmail === staffPortals.security.leadEmail) {
+    return "security";
+  }
+
+  if (normalizedEmail === staffPortals.chaplaincy.leadEmail) {
+    return "chaplaincy";
+  }
+
+  return null;
+}
+
 async function getCurrentSignedInProfile() {
   const authUser = getFirebaseAuth().currentUser;
 
@@ -80,7 +102,9 @@ async function getCurrentSignedInProfile() {
   const snapshot = await getDoc(doc(getFirebaseDb(), "users", authUser.uid));
   const tokenResult = await authUser.getIdTokenResult();
   const tokenRole =
-    typeof tokenResult.claims.role === "string" ? (tokenResult.claims.role as User["role"]) : "student";
+    typeof tokenResult.claims.role === "string"
+      ? (tokenResult.claims.role as User["role"])
+      : getPrivilegedRoleByEmail(authUser.email) || "student";
 
   if (!snapshot.exists()) {
     return {
@@ -126,10 +150,6 @@ function isValidMatric(value: string) {
 
 function getStudentAccessDirectoryId(value: string) {
   return normalizeMatric(value).replace("/", "");
-}
-
-function normalizeEmail(value: string) {
-  return value.trim().toLowerCase();
 }
 
 function generateTemporaryPassword() {
