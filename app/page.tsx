@@ -97,6 +97,10 @@ export default function Home() {
               ))}
             </div>
 
+            <div>
+              
+            </div>
+
             <div className="border-t border-slate-200 pt-4">
               <p className="mb-3 text-sm font-medium text-slate-950">Need help?</p>
               <div className="flex flex-wrap gap-3">
