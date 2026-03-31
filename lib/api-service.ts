@@ -137,12 +137,34 @@ async function getCurrentSignedInProfile() {
   }
 
   const snapshot = await getDoc(doc(getFirebaseDb(), "users", authUser.uid));
+  const tokenResult = await authUser.getIdTokenResult();
+  const tokenRole =
+    typeof tokenResult.claims.role === "string" ? (tokenResult.claims.role as User["role"]) : "student";
 
   if (!snapshot.exists()) {
-    throw new Error("Your user profile could not be loaded.");
+    return {
+      id: authUser.uid,
+      name: authUser.displayName || authUser.email?.split("@")[0] || "User",
+      email: authUser.email || "",
+      matric: "",
+      role: tokenRole,
+      photo: authUser.photoURL || undefined,
+      permissions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } satisfies User;
   }
 
-  return mapUser(snapshot.id, snapshot.data());
+  const profile = mapUser(snapshot.id, snapshot.data());
+
+  if (tokenRole !== "student" && profile.role === "student") {
+    return {
+      ...profile,
+      role: tokenRole,
+    };
+  }
+
+  return profile;
 }
 
 function slugify(value: string) {

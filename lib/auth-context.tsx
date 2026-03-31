@@ -77,6 +77,13 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
+async function getRoleFromAuth(firebaseUser: FirebaseUser): Promise<User["role"]> {
+  const tokenResult = await firebaseUser.getIdTokenResult();
+  const claimedRole = tokenResult.claims.role;
+
+  return typeof claimedRole === "string" ? (claimedRole as User["role"]) : "student";
+}
+
 function readPendingProfile(uid: string): PendingStudentProfile | null {
   if (typeof window === "undefined") {
     return null;
@@ -417,6 +424,7 @@ async function loadPendingFallback(firebaseUser: FirebaseUser): Promise<User | n
 }
 
 async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
+  const tokenRole = await getRoleFromAuth(firebaseUser);
   let snapshot;
 
   try {
@@ -443,7 +451,7 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
       name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
       email: firebaseUser.email || "",
       matric: "",
-      role: "student",
+      role: tokenRole,
       photo: firebaseUser.photoURL || undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -451,27 +459,34 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
   }
 
   const profile = mapUser(snapshot.id, snapshot.data());
+  const resolvedProfile =
+    tokenRole !== "student" && profile.role === "student"
+      ? {
+          ...profile,
+          role: tokenRole,
+        }
+      : profile;
 
-  if (profile.role !== "student" && profile.approvalStatus === "pending") {
+  if (resolvedProfile.role !== "student" && resolvedProfile.approvalStatus === "pending") {
     await signOut(getFirebaseAuth());
     throw new Error("Your staff account is waiting for super admin approval.");
   }
 
-  if (profile.role !== "student" && profile.approvalStatus === "rejected") {
+  if (resolvedProfile.role !== "student" && resolvedProfile.approvalStatus === "rejected") {
     await signOut(getFirebaseAuth());
     throw new Error(
-      profile.rejectionReason
-        ? `Your staff account request was rejected: ${profile.rejectionReason}`
+      resolvedProfile.rejectionReason
+        ? `Your staff account request was rejected: ${resolvedProfile.rejectionReason}`
         : "Your staff account request was rejected. Contact the super admin.",
     );
   }
 
-  if (profile.disabled) {
+  if (resolvedProfile.disabled) {
     await signOut(getFirebaseAuth());
     throw new Error("This account has been disabled. Contact the platform administrator.");
   }
 
-  return profile;
+  return resolvedProfile;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -548,6 +563,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             normalizedEmail,
             password,
           );
+          await credentials.user.getIdToken(true);
           const profile = await loadUserProfile(credentials.user);
           setFirebaseUser(credentials.user);
           setUser(profile);

@@ -152,6 +152,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
     confirmPassword: "",
   });
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -189,6 +190,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    setNotice("");
 
     if (invite && !config.acceptedRoles.includes(invite.role)) {
       setError(`This invite belongs on /${getPortalForRole(invite.role)}/signup instead.`);
@@ -215,6 +217,11 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
         directRole: config.directSignupRole,
         token: token || undefined,
       });
+
+      if (!token && createdUser.approvalStatus === 'pending') {
+        setNotice('Your account request has been created and is waiting for super admin approval.');
+        return;
+      }
 
       const profile = await login(formData.email, formData.password);
 
@@ -318,6 +325,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
               </div>
 
               {error ? <ErrorNotice message={error} /> : null}
+              {notice ? <SuccessNotice message={notice} /> : null}
 
               <Button
                 type="submit"
@@ -376,6 +384,15 @@ function ErrorNotice({ message }: { message: string }) {
     <div className="flex gap-3 rounded-2xl border border-destructive/20 bg-destructive/10 p-3">
       <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
       <p className="text-sm text-destructive">{message}</p>
+    </div>
+  );
+}
+
+function SuccessNotice({ message }: { message: string }) {
+  return (
+    <div className="flex gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-3">
+      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-700" />
+      <p className="text-sm text-blue-800">{message}</p>
     </div>
   );
 }
