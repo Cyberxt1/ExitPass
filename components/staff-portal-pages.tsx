@@ -212,6 +212,7 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        directRole: config.directSignupRole,
         token: token || undefined,
       });
 

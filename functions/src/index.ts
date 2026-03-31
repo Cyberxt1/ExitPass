@@ -573,6 +573,7 @@ export const registerStaffAccount = onCall(callableOptions, async (request) => {
   const name = String(payload.name || '').trim();
   const email = normalizeEmail(String(payload.email || ''));
   const password = String(payload.password || '');
+  const directRole = String(payload.directRole || '').trim() as UserRole;
   const token = String(payload.token || '').trim();
 
   if (!name || !email || password.length < 8) {
@@ -607,16 +608,12 @@ export const registerStaffAccount = onCall(callableOptions, async (request) => {
     hostel = inviteData.hostel || '';
     hostelId = inviteData.hostelId || '';
   } else {
-    for (const [candidateRole, candidateEmail] of PRIMARY_EMAIL_TO_ROLE.entries()) {
-      if (candidateEmail === email) {
-        role = candidateRole;
-      }
-    }
+    role = directRole;
 
-    if (!role || role === 'student' || role === 'hall_admin') {
+    if (!role || role === 'student' || role === 'super_admin') {
       throw new HttpsError(
-        'permission-denied',
-        'This email is not approved for direct staff setup. Use a valid invite link instead.',
+        'invalid-argument',
+        'Choose a valid staff portal to create this account.',
       );
     }
   }

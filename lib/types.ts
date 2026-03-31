@@ -172,7 +172,7 @@ export interface StaffInvite {
   id: string;
   email: string;
   name?: string;
-  role: Exclude<UserRole, "student">;
+  role: Exclude<UserRole, "student" | "super_admin">;
   hostel?: string;
   hostelId?: string;
   status: StaffInviteStatus;
@@ -194,6 +194,7 @@ export interface RegisterStaffInput {
   email: string;
   name: string;
   password: string;
+  directRole?: Exclude<UserRole, "student" | "super_admin">;
   token?: string;
 }
 

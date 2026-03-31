@@ -169,24 +169,6 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
-function getLeadRoleForEmail(email: string): User["role"] | null {
-  const normalizedEmail = email.trim().toLowerCase();
-
-  if (normalizedEmail === staffPortals.admin.leadEmail) {
-    return "super_admin";
-  }
-
-  if (normalizedEmail === staffPortals.security.leadEmail) {
-    return "security";
-  }
-
-  if (normalizedEmail === staffPortals.chaplaincy.leadEmail) {
-    return "chaplaincy";
-  }
-
-  return null;
-}
-
 export const apiService = {
   async lookupStudentAccess(matric: string) {
     const normalizedMatric = normalizeMatric(matric);
@@ -721,13 +703,14 @@ export const apiService = {
     const normalizedEmail = normalizeEmail(input.email);
     const name = input.name.trim();
     const password = input.password;
+    const directRole = input.directRole;
     const token = input.token?.trim();
 
     if (!name || !normalizedEmail || password.length < 8) {
       throw new Error("Valid name, email, and password are required.");
     }
 
-    let role = getLeadRoleForEmail(normalizedEmail);
+    let role: Exclude<User["role"], "student" | "super_admin"> | undefined = directRole;
     let hostel = "";
     let hostelId = "";
 
@@ -747,8 +730,8 @@ export const apiService = {
       hostelId = invite.hostelId || "";
     }
 
-    if (!role || role === "student") {
-      throw new Error("This email is not approved for staff signup.");
+    if (!role) {
+      throw new Error("Choose a valid staff portal to create this account.");
     }
 
     const credentials = await createUserWithEmailAndPassword(
@@ -767,13 +750,11 @@ export const apiService = {
       role,
       hostel,
       permissions:
-        role === "super_admin"
-          ? ["approve_passes", "manage_students", "manage_admins", "view_analytics", "manage_hostels"]
-          : role === "hall_admin"
-            ? ["approve_passes", "manage_students", "view_analytics"]
-            : role === "chaplaincy"
-              ? ["approve_passes", "send_updates", "manage_staff"]
-              : ["scan_passes", "view_history", "manage_staff"],
+        role === "hall_admin"
+          ? ["approve_passes", "manage_students", "view_analytics"]
+          : role === "chaplaincy"
+            ? ["approve_passes", "send_updates", "manage_staff"]
+            : ["scan_passes", "view_history", "manage_staff"],
       disabled: false,
       ...(token ? { inviteToken: token } : {}),
       createdAt: serverTimestamp(),

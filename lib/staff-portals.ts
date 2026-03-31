@@ -9,6 +9,7 @@ type StaffPortalConfig = {
   description: string;
   loginDescription: string;
   signupDescription: string;
+  directSignupRole: Exclude<UserRole, "student" | "super_admin">;
   leadEmail: string;
   acceptedRoles: UserRole[];
 };
@@ -20,7 +21,8 @@ export const staffPortals: Record<StaffPortalSlug, StaffPortalConfig> = {
     title: "Admin Access",
     description: "Authorized administrators can sign in from this dedicated route.",
     loginDescription: "Use your approved admin credentials to continue.",
-    signupDescription: "Complete admin account setup from an approved invitation or authorized email.",
+    signupDescription: "Create a hall admin account here or finish setup from an approved invitation.",
+    directSignupRole: "hall_admin",
     leadEmail: "oluokundavid4@gmail.com",
     acceptedRoles: ["hall_admin", "super_admin"],
   },
@@ -30,7 +32,8 @@ export const staffPortals: Record<StaffPortalSlug, StaffPortalConfig> = {
     title: "Security Access",
     description: "Authorized security staff can sign in from this dedicated route.",
     loginDescription: "Use your approved security credentials to continue.",
-    signupDescription: "Complete security account setup from an approved invitation or authorized email.",
+    signupDescription: "Create a security account here or finish setup from an approved invitation.",
+    directSignupRole: "security",
     leadEmail: "xplick@gmail.com",
     acceptedRoles: ["security"],
   },
@@ -40,7 +43,8 @@ export const staffPortals: Record<StaffPortalSlug, StaffPortalConfig> = {
     title: "Chaplaincy Access",
     description: "Authorized chaplaincy staff can sign in from this dedicated route.",
     loginDescription: "Use your approved chaplaincy credentials to continue.",
-    signupDescription: "Complete chaplaincy account setup from an approved invitation or authorized email.",
+    signupDescription: "Create a chaplaincy account here or finish setup from an approved invitation.",
+    directSignupRole: "chaplaincy",
     leadEmail: "blyinkr4@gmail.com",
     acceptedRoles: ["chaplaincy"],
   },

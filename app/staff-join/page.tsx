@@ -101,7 +101,7 @@ function StaffJoinContent() {
 
   const subtitle = invite
     ? `${invite.role.replace("_", " ")} access${invite.hostel ? ` for ${invite.hostel}` : ""}`
-    : "Complete staff access setup with an approved invitation or authorized email.";
+    : "Complete staff access setup with an approved invitation.";
 
   return (
     <MarketingShell compact>
