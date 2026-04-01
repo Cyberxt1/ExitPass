@@ -54,6 +54,41 @@
           : null;
       }
 
+      function hostelDoc(hostelKey) {
+        return hostelKey is string
+          && exists(/databases/$(database)/documents/hostels/$(hostelKey))
+          ? get(/databases/$(database)/documents/hostels/$(hostelKey)).data
+          : null;
+      }
+
+      function currentUserHostelDoc() {
+        return currentUserHostel() is string
+          ? hostelDoc(currentUserHostel())
+          : null;
+      }
+
+      function hostelsMatch(hostelValue) {
+        return currentUserHostel() is string
+          && hostelValue is string
+          && (
+            hostelValue == currentUserHostel()
+            || (
+              currentUserHostelDoc() != null
+              && (
+                currentUserHostelDoc().name == hostelValue
+                || currentUserHostelDoc().slug == hostelValue
+              )
+            )
+            || (
+              hostelDoc(hostelValue) != null
+              && (
+                hostelDoc(hostelValue).name == currentUserHostel()
+                || hostelDoc(hostelValue).slug == currentUserHostel()
+              )
+            )
+          );
+      }
+
       function isLeadStaffEmail() {
         return request.resource.data.email in [
           'oluokundavid4@gmail.com',
@@ -229,8 +264,7 @@
           && request.resource.data.chaplainApproval == resource.data.chaplainApproval
           && (
             isHallAdmin()
-            && currentUserHostel() is string
-            && resource.data.studentSnapshot.hostel == currentUserHostel()
+            && hostelsMatch(resource.data.studentSnapshot.hostel)
           )
           && request.resource.data.status in ['approved', 'rejected']
           && (
@@ -312,8 +346,10 @@
             isSuperAdmin()
             || (
               isHallAdmin()
-              && currentUserHostel() is string
-              && currentUserHostel() == resource.data.name
+              && (
+                hostelsMatch(resource.data.name)
+                || hostelsMatch(hostelId)
+              )
               && request.resource.data.hallAdminEmail == currentUserProfile().email
             )
           );
@@ -355,8 +391,7 @@
             isSuperAdmin()
             ||
             (isHallAdmin()
-              && currentUserHostel() is string
-              && request.resource.data.studentSnapshot.hostel == currentUserHostel())
+              && hostelsMatch(request.resource.data.studentSnapshot.hostel))
           );
         allow update: if isSignedIn()
           && isSecurity()

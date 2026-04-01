@@ -76,6 +76,10 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
+function normalizeHostelValue(value?: string | null) {
+  return value?.trim().toLowerCase() || "";
+}
+
 function getPrivilegedRoleByEmail(email?: string | null): Exclude<User["role"], "student"> | null {
   const normalizedEmail = normalizeEmail(email || "");
 
@@ -156,6 +160,48 @@ function getStudentAccessDirectoryId(value: string) {
 
 function generateTemporaryPassword() {
   return `ExitPass!${Math.random().toString(16).slice(2, 10)}`;
+}
+
+async function hostelsMatchForAccess(leftHostel?: string | null, rightHostel?: string | null) {
+  const normalizedLeft = normalizeHostelValue(leftHostel);
+  const normalizedRight = normalizeHostelValue(rightHostel);
+
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+
+  if (normalizedLeft === normalizedRight) {
+    return true;
+  }
+
+  const [leftSnapshot, rightSnapshot] = await Promise.all([
+    getDoc(doc(getFirebaseDb(), "hostels", leftHostel!.trim())),
+    getDoc(doc(getFirebaseDb(), "hostels", rightHostel!.trim())),
+  ]);
+
+  if (leftSnapshot.exists()) {
+    const leftHostelRecord = mapHostel(leftSnapshot.id, leftSnapshot.data() || {});
+
+    if (
+      normalizeHostelValue(leftHostelRecord.name) === normalizedRight ||
+      normalizeHostelValue(leftHostelRecord.slug) === normalizedRight
+    ) {
+      return true;
+    }
+  }
+
+  if (rightSnapshot.exists()) {
+    const rightHostelRecord = mapHostel(rightSnapshot.id, rightSnapshot.data() || {});
+
+    if (
+      normalizeHostelValue(rightHostelRecord.name) === normalizedLeft ||
+      normalizeHostelValue(rightHostelRecord.slug) === normalizedLeft
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function getRoleDisplayName(role?: User["role"]) {
@@ -469,7 +515,7 @@ export const apiService = {
         actor.role === "hall_admin" &&
         actor.hostel &&
         requestRecord.student?.hostel &&
-        actor.hostel.toLowerCase() !== requestRecord.student.hostel.toLowerCase()
+        !(await hostelsMatchForAccess(actor.hostel, requestRecord.student.hostel))
       ) {
         throw new Error("You can only approve requests from students in your hostel.");
       }
@@ -554,7 +600,7 @@ export const apiService = {
       actor.role === "hall_admin" &&
       actor.hostel &&
       requestRecord.student?.hostel &&
-      actor.hostel.toLowerCase() !== requestRecord.student.hostel.toLowerCase()
+      !(await hostelsMatchForAccess(actor.hostel, requestRecord.student.hostel))
     ) {
       throw new Error("You can only manage requests from students in your hostel.");
     }
