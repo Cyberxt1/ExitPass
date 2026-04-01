@@ -280,6 +280,28 @@
           );
       }
 
+      function canSelfAssignHallAdminHostel(userId) {
+        return isOwner(userId)
+          && resource.data.role == 'hall_admin'
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.name == resource.data.name
+          && request.resource.data.matric == resource.data.matric
+          && request.resource.data.permissions == resource.data.permissions
+          && request.resource.data.disabled == resource.data.disabled
+          && request.resource.data.approvalStatus == resource.data.approvalStatus
+          && request.resource.data.approvalReviewedBy == resource.data.approvalReviewedBy
+          && request.resource.data.approvalReviewedAt == resource.data.approvalReviewedAt
+          && request.resource.data.rejectionReason == resource.data.rejectionReason
+          && request.resource.data.hostel is string
+          && hostelDoc(request.resource.data.hostel) != null
+          && hostelDoc(request.resource.data.hostel).hallAdminEmail == resource.data.email
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'hostel',
+            'updatedAt'
+          ]);
+      }
+
       match /users/{userId} {
         allow read: if isOwner(userId) || isPrivileged();
         allow create: if canCreateStudentProfile(userId)
@@ -311,7 +333,7 @@
               'approvalReviewedAt',
               'rejectionReason'
             ])
-          );
+          ) || canSelfAssignHallAdminHostel(userId);
         allow delete: if false;
       }
 

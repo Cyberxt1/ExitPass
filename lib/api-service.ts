@@ -51,6 +51,7 @@ import type {
   CreateHolidayInput,
   CreateStaffInviteInput,
   CreatedAdminResult,
+  Hostel,
   Notification,
   Pass,
   PassRequest,
@@ -202,6 +203,72 @@ async function hostelsMatchForAccess(leftHostel?: string | null, rightHostel?: s
   }
 
   return false;
+}
+
+async function findAssignedHostelForHallAdmin(email?: string | null): Promise<Hostel | null> {
+  const normalizedEmail = normalizeEmail(email || "");
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const snapshot = await getDocs(
+    query(
+      collection(getFirebaseDb(), "hostels"),
+      where("hallAdminEmail", "==", normalizedEmail),
+      limit(1),
+    ),
+  );
+
+  const hostelDoc = snapshot.docs[0];
+  return hostelDoc ? mapHostel(hostelDoc.id, hostelDoc.data()) : null;
+}
+
+async function ensureHallAdminHostelAssignment(actor: User): Promise<User> {
+  if (actor.role !== "hall_admin" || normalizeHostelValue(actor.hostel)) {
+    return actor;
+  }
+
+  const assignedHostel = await findAssignedHostelForHallAdmin(actor.email);
+
+  if (!assignedHostel) {
+    return actor;
+  }
+
+  await updateDoc(doc(getFirebaseDb(), "users", actor.id), {
+    hostel: assignedHostel.slug,
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    ...actor,
+    hostel: assignedHostel.slug,
+  };
+}
+
+async function resolveHostelByValue(hostelValue?: string | null): Promise<Hostel | null> {
+  const normalizedHostelValue = normalizeHostelValue(hostelValue);
+
+  if (!normalizedHostelValue) {
+    return null;
+  }
+
+  const directSnapshot = await getDoc(doc(getFirebaseDb(), "hostels", hostelValue!.trim()));
+
+  if (directSnapshot.exists()) {
+    return mapHostel(directSnapshot.id, directSnapshot.data() || {});
+  }
+
+  const hostelsSnapshot = await getDocs(collection(getFirebaseDb(), "hostels"));
+  const match = hostelsSnapshot.docs.find((item) => {
+    const hostel = mapHostel(item.id, item.data());
+    return (
+      normalizeHostelValue(hostel.name) === normalizedHostelValue ||
+      normalizeHostelValue(hostel.slug) === normalizedHostelValue
+    );
+  });
+
+  return match ? mapHostel(match.id, match.data()) : null;
 }
 
 function getRoleDisplayName(role?: User["role"]) {
@@ -471,7 +538,8 @@ export const apiService = {
   },
 
   async approvePassRequest(requestId: string, remarks?: string) {
-    const actor = await getCurrentSignedInProfile();
+    let actor = await getCurrentSignedInProfile();
+    actor = await ensureHallAdminHostelAssignment(actor);
     const requestRef = doc(getFirebaseDb(), "passRequests", requestId);
     const requestSnapshot = await getDoc(requestRef);
 
@@ -574,7 +642,8 @@ export const apiService = {
   },
 
   async rejectPassRequest(requestId: string, reason: string) {
-    const actor = await getCurrentSignedInProfile();
+    let actor = await getCurrentSignedInProfile();
+    actor = await ensureHallAdminHostelAssignment(actor);
     const requestRef = doc(getFirebaseDb(), "passRequests", requestId);
     const requestSnapshot = await getDoc(requestRef);
 
@@ -1019,6 +1088,10 @@ export const apiService = {
       throw new Error("Choose a valid staff portal to create this account.");
     }
 
+    if (role === "hall_admin" && !token) {
+      throw new Error("Hall admin accounts must be created from a super admin invite.");
+    }
+
     const credentials = await createUserWithEmailAndPassword(
       getFirebaseAuth(),
       normalizedEmail,
@@ -1106,6 +1179,23 @@ export const apiService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+
+    if (adminData.role === "hall_admin" && adminData.hostel?.trim()) {
+      const assignedHostel = await resolveHostelByValue(adminData.hostel);
+
+      if (assignedHostel) {
+        await Promise.all([
+          updateDoc(userRef, {
+            hostel: assignedHostel.slug,
+            updatedAt: serverTimestamp(),
+          }),
+          updateDoc(doc(getFirebaseDb(), "hostels", assignedHostel.slug), {
+            hallAdminEmail: normalizedEmail,
+            updatedAt: serverTimestamp(),
+          }),
+        ]);
+      }
+    }
 
     const snapshot = await getDoc(userRef);
 

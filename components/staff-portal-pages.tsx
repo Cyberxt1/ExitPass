@@ -190,6 +190,11 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
     event.preventDefault();
     setError("");
 
+    if (config.directSignupRole === "hall_admin" && !token) {
+      setError("Hall admin accounts must be created from a super admin invite.");
+      return;
+    }
+
     if (invite && !config.acceptedRoles.includes(invite.role)) {
       setError(`This invite belongs on /${getPortalForRole(invite.role)}/signup instead.`);
       return;
@@ -267,6 +272,12 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
               </div>
             ) : null}
 
+            {!invite && config.directSignupRole === "hall_admin" ? (
+              <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Hall admin setup is invite-only. Ask the super admin to create your account or send your invite link.
+              </div>
+            ) : null}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="Full name">
                 <Input
@@ -321,7 +332,13 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
 
               <Button
                 type="submit"
-                disabled={isSubmitting || inviteLoading || !formData.email || !formData.name}
+                disabled={
+                  isSubmitting ||
+                  inviteLoading ||
+                  !formData.email ||
+                  !formData.name ||
+                  (config.directSignupRole === "hall_admin" && !token)
+                }
                 className="h-11 w-full rounded-full bg-slate-950 text-white hover:bg-slate-800"
               >
                 {isSubmitting ? (
