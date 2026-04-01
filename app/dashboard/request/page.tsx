@@ -26,7 +26,7 @@ import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
 import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import { formatDateTime, getPassTypeLabel } from '@/lib/platform';
-import type { PassType } from '@/lib/types';
+import type { Holiday, PassType } from '@/lib/types';
 
 const passTypes: Array<{
   value: PassType;
@@ -54,9 +54,24 @@ function todayDate() {
   return new Date().toISOString().split('T')[0];
 }
 
+function toDateInputValue(value?: string | null) {
+  return value ? value.split('T')[0] : todayDate();
+}
+
+function toTimeInputValue(value?: string | null) {
+  if (!value) {
+    return '09:00';
+  }
+
+  return new Date(value).toISOString().slice(11, 16);
+}
+
 export default function RequestPassPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [holidaysLoading, setHolidaysLoading] = useState(true);
+  const [selectedHolidayId, setSelectedHolidayId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -76,6 +91,23 @@ export default function RequestPassPage() {
     }
   }, [user?.role, isLoading, navigate]);
 
+  useEffect(() => {
+    void (async () => {
+      setHolidaysLoading(true);
+
+      try {
+        setHolidays(await apiService.getBookableHolidays());
+      } finally {
+        setHolidaysLoading(false);
+      }
+    })();
+  }, []);
+
+  const selectedHoliday = useMemo(
+    () => holidays.find((holiday) => holiday.id === selectedHolidayId) || null,
+    [holidays, selectedHolidayId],
+  );
+
   const departureDateTime = useMemo(
     () => new Date(`${formData.departureDate}T${formData.departureTime}`),
     [formData.departureDate, formData.departureTime],
@@ -87,6 +119,10 @@ export default function RequestPassPage() {
   );
 
   const validationMessage = useMemo(() => {
+    if (formData.type === 'holiday' && !selectedHolidayId) {
+      return 'Select a holiday booking window to continue.';
+    }
+
     if (!formData.destination.trim() || !formData.reason.trim()) {
       return 'Complete your destination and reason to continue.';
     }
@@ -100,7 +136,7 @@ export default function RequestPassPage() {
     }
 
     return '';
-  }, [departureDateTime, formData.destination, formData.reason, returnDateTime]);
+  }, [departureDateTime, formData.destination, formData.reason, formData.type, returnDateTime, selectedHolidayId]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -114,13 +150,20 @@ export default function RequestPassPage() {
     setIsSubmitting(true);
 
     try {
+      const destination = selectedHoliday ? selectedHoliday.title : formData.destination.trim();
+      const reason = selectedHoliday
+        ? selectedHoliday.description || `Holiday booking for ${selectedHoliday.title}`
+        : formData.reason.trim();
+      const departureValue = selectedHoliday ? new Date(selectedHoliday.departureDate) : departureDateTime;
+      const returnValue = selectedHoliday ? new Date(selectedHoliday.expectedReturnDate) : returnDateTime;
+
       await apiService.submitPassRequest({
         studentId: user!.id,
         type: formData.type,
-        destination: formData.destination.trim(),
-        reason: formData.reason.trim(),
-        departureDate: departureDateTime,
-        expectedReturnDate: returnDateTime,
+        destination,
+        reason,
+        departureDate: departureValue,
+        expectedReturnDate: returnValue,
       });
 
       setSubmitted(true);
@@ -198,7 +241,12 @@ export default function RequestPassPage() {
                     <button
                       key={type.value}
                       type="button"
-                      onClick={() => setFormData((current) => ({ ...current, type: type.value }))}
+                      onClick={() => {
+                        setFormData((current) => ({ ...current, type: type.value }));
+                        if (type.value !== 'holiday') {
+                          setSelectedHolidayId('');
+                        }
+                      }}
                       className={`rounded-[1.5rem] border p-4 text-left transition ${
                         formData.type === type.value
                           ? 'brand-selected'
@@ -212,16 +260,65 @@ export default function RequestPassPage() {
                 </div>
               </div>
 
+              {formData.type === 'holiday' ? (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Holiday booking window</label>
+                  {holidaysLoading ? (
+                    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-500">
+                      Loading holiday options...
+                    </div>
+                  ) : holidays.length ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {holidays.map((holiday) => (
+                        <button
+                          key={holiday.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedHolidayId(holiday.id);
+                            setFormData((current) => ({
+                              ...current,
+                              destination: holiday.title,
+                              reason: holiday.description || current.reason,
+                              departureDate: toDateInputValue(holiday.departureDate),
+                              departureTime: toTimeInputValue(holiday.departureDate),
+                              returnDate: toDateInputValue(holiday.expectedReturnDate),
+                              returnTime: toTimeInputValue(holiday.expectedReturnDate),
+                            }));
+                          }}
+                          className={`rounded-[1.5rem] border p-4 text-left transition ${
+                            selectedHolidayId === holiday.id
+                              ? 'brand-selected'
+                              : 'border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-white'
+                          }`}
+                        >
+                          <p className="font-semibold text-slate-950">{holiday.title}</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">
+                            {holiday.description || 'Holiday booking window'}
+                          </p>
+                          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+                            {formatDateTime(holiday.departureDate)} to {formatDateTime(holiday.expectedReturnDate)}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-500">
+                      No holiday booking windows are available right now.
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium text-slate-700">Destination</label>
                   <Input
-                    placeholder="Where are you going?"
+                    placeholder={formData.type === 'holiday' ? 'Select a holiday window' : 'Where are you going?'}
                     value={formData.destination}
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, destination: event.target.value }))
                     }
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -230,12 +327,16 @@ export default function RequestPassPage() {
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium text-slate-700">Reason</label>
                   <Textarea
-                    placeholder="Explain why you need to leave campus."
+                    placeholder={
+                      formData.type === 'holiday'
+                        ? 'Holiday description will be used for this booking.'
+                        : 'Explain why you need to leave campus.'
+                    }
                     value={formData.reason}
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, reason: event.target.value }))
                     }
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || formData.type === 'holiday'}
                     className="min-h-32 rounded-[1.5rem] border-slate-200 bg-white/80"
                     required
                   />
@@ -257,7 +358,7 @@ export default function RequestPassPage() {
                             : current.returnDate,
                       }))
                     }
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -270,7 +371,7 @@ export default function RequestPassPage() {
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, departureTime: event.target.value }))
                     }
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -285,7 +386,7 @@ export default function RequestPassPage() {
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, returnDate: event.target.value }))
                     }
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -298,7 +399,7 @@ export default function RequestPassPage() {
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, returnTime: event.target.value }))
                     }
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />

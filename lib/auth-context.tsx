@@ -482,7 +482,7 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
 
   const profile = mapUser(snapshot.id, snapshot.data());
   const resolvedProfile =
-    tokenRole !== "student" && profile.role === "student"
+    tokenRole !== profile.role
       ? {
           ...profile,
           role: tokenRole,

@@ -4,6 +4,7 @@ import type {
   ApprovalRecord,
   ApprovalStatus,
   Announcement,
+  Holiday,
   Hostel,
   Notification,
   Pass,
@@ -82,6 +83,7 @@ function mapApprovalRecord(value?: unknown, fallbackRole: UserRole = "hall_admin
 
   return {
     approvedBy: typeof data.approvedBy === "string" ? data.approvedBy : "",
+    approverName: typeof data.approverName === "string" ? data.approverName : undefined,
     approverRole:
       (typeof data.approverRole === "string" ? data.approverRole : fallbackRole) as UserRole,
     approvedAt: toIsoString(data.approvedAt),
@@ -166,6 +168,9 @@ export function mapPass(id: string, value: UnknownRecord): Pass {
     departureDate: toIsoString(value.departureDate),
     expectedReturnDate: toIsoString(value.expectedReturnDate),
     actualReturnDate: value.actualReturnDate ? toIsoString(value.actualReturnDate) : undefined,
+    returnedBy: typeof value.returnedBy === "string" ? value.returnedBy : undefined,
+    returnedByName: typeof value.returnedByName === "string" ? value.returnedByName : undefined,
+    returnRemarks: typeof value.returnRemarks === "string" ? value.returnRemarks : undefined,
     status: (typeof value.status === "string" ? value.status : "pending") as Pass["status"],
     currentStage:
       typeof value.currentStage === "string" ? (value.currentStage as Pass["currentStage"]) : undefined,
@@ -203,6 +208,19 @@ export function mapAnnouncement(id: string, value: UnknownRecord): Announcement 
   };
 }
 
+export function mapHoliday(id: string, value: UnknownRecord): Holiday {
+  return {
+    id,
+    title: typeof value.title === "string" ? value.title : "",
+    description: typeof value.description === "string" ? value.description : "",
+    departureDate: toIsoString(value.departureDate),
+    expectedReturnDate: toIsoString(value.expectedReturnDate),
+    createdBy: typeof value.createdBy === "string" ? value.createdBy : "",
+    createdAt: toIsoString(value.createdAt, new Date().toISOString()),
+    updatedAt: toIsoString(value.updatedAt, new Date().toISOString()),
+  };
+}
+
 export function mapScanLog(id: string, value: UnknownRecord): ScanLog {
   return {
     id,
@@ -210,6 +228,8 @@ export function mapScanLog(id: string, value: UnknownRecord): ScanLog {
     passId: typeof value.passId === "string" ? value.passId : undefined,
     studentId: typeof value.studentId === "string" ? value.studentId : undefined,
     location: typeof value.location === "string" ? value.location : "",
+    eventType:
+      value.eventType === "return" ? "return" : value.eventType === "scan" ? "scan" : undefined,
     status:
       value.status === "failed" ? "failed" : "success",
     timestamp: toIsoString(value.timestamp, new Date().toISOString()),
@@ -227,6 +247,7 @@ export function requestToPassRecord(request: PassRequest): Pass {
     reason: request.reason,
     departureDate: request.departureDate,
     expectedReturnDate: request.expectedReturnDate,
+    actualReturnDate: undefined,
     status: request.status,
     currentStage: request.currentStage,
     hallAdminApproval: request.hallAdminApproval,

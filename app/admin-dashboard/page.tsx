@@ -35,6 +35,7 @@ import type {
   Announcement,
   CreateAdminInput,
   CreateStaffInviteInput,
+  Holiday,
   Hostel,
   PassRequest,
   StaffInvite,
@@ -90,7 +91,7 @@ function getWorkspaceDescription(role?: User['role']) {
     case 'security':
       return 'Manage staff access and gate operations.';
     case 'super_admin':
-      return 'Manage staff, hostels, updates, and platform activity.';
+      return 'Manage staff, hostels, holiday booking windows, updates, and platform activity.';
     default:
       return 'Manage platform operations.';
   }
@@ -154,6 +155,10 @@ const INITIAL_STUDENT_FORM: StudentSignupInput = {
   password: '',
 };
 
+function todayDate() {
+  return new Date().toISOString().split('T')[0];
+}
+
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -165,11 +170,18 @@ export default function AdminDashboardPage() {
   const [selectedStudent, setSelectedStudent] = useState<StudentDetails | null>(null);
   const [admins, setAdmins] = useState<User[]>([]);
   const [hostels, setHostels] = useState<Hostel[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [invites, setInvites] = useState<StaffInvite[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [createdInviteUrl, setCreatedInviteUrl] = useState('');
   const [hostelName, setHostelName] = useState('');
+  const [holidayForm, setHolidayForm] = useState({
+    title: '',
+    description: '',
+    departureDate: todayDate(),
+    expectedReturnDate: todayDate(),
+  });
   const [announcement, setAnnouncement] = useState({ title: '', message: '' });
   const [inviteForm, setInviteForm] = useState<CreateStaffInviteInput>({
     email: '',
@@ -189,7 +201,7 @@ export default function AdminDashboardPage() {
     hostel: '',
   });
   const [studentAccountForm, setStudentAccountForm] = useState<StudentSignupInput>(INITIAL_STUDENT_FORM);
-  const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
+  const [reviewRemarks, setReviewRemarks] = useState<Record<string, string>>({});
   const [staffApprovalReasons, setStaffApprovalReasons] = useState<Record<string, string>>({});
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [studentsLoading, setStudentsLoading] = useState(true);
@@ -200,12 +212,12 @@ export default function AdminDashboardPage() {
   const [actionMessage, setActionMessage] = useState('');
   const [actionError, setActionError] = useState('');
 
-  const canManageApprovals = ['hall_admin', 'chaplaincy', 'super_admin'].includes(user?.role || '');
-  const canManageStudents = canManageApprovals;
+  const canManageApprovals = ['hall_admin', 'chaplaincy'].includes(user?.role || '');
+  const canManageStudents = ['hall_admin', 'chaplaincy', 'super_admin'].includes(user?.role || '');
   const canManageStaff = ['chaplaincy', 'security', 'super_admin'].includes(user?.role || '');
   const canManageGovernance = user?.role === 'super_admin';
   const canManageHostels = user?.role === 'super_admin';
-  const canSendUpdates = canManageApprovals;
+  const canSendUpdates = ['hall_admin', 'chaplaincy', 'super_admin'].includes(user?.role || '');
   const canViewAnalytics = ['hall_admin', 'chaplaincy', 'security', 'super_admin'].includes(user?.role || '');
 
   const availableTabs = useMemo<TabId[]>(() => {
@@ -318,14 +330,16 @@ export default function AdminDashboardPage() {
   const loadStaff = async () => {
     setStaffLoading(true);
     try {
-      const [nextAdmins, nextHostels, nextInvites] = await Promise.all([
+      const [nextAdmins, nextHostels, nextInvites, nextHolidays] = await Promise.all([
         apiService.getAdmins(),
         apiService.getHostels(),
         apiService.getStaffInvites(),
+        apiService.getHolidays(),
       ]);
       setAdmins(nextAdmins);
       setHostels(nextHostels);
       setInvites(nextInvites);
+      setHolidays(nextHolidays);
     } finally {
       setStaffLoading(false);
     }
@@ -334,18 +348,20 @@ export default function AdminDashboardPage() {
   const loadGovernance = async () => {
     setGovernanceLoading(true);
     try {
-      const [nextPendingStaff, nextAdmins, nextStudents, nextHostels, nextInvites] = await Promise.all([
+      const [nextPendingStaff, nextAdmins, nextStudents, nextHostels, nextInvites, nextHolidays] = await Promise.all([
         apiService.getPendingStaffApprovals(),
         apiService.getAdmins(),
         apiService.getAllStudents(),
         apiService.getHostels(),
         apiService.getStaffInvites(),
+        apiService.getHolidays(),
       ]);
       setPendingStaffApprovals(nextPendingStaff);
       setAdmins(nextAdmins);
       setStudents(nextStudents);
       setHostels(nextHostels);
       setInvites(nextInvites);
+      setHolidays(nextHolidays);
     } finally {
       setGovernanceLoading(false);
     }
@@ -370,26 +386,28 @@ export default function AdminDashboardPage() {
   };
 
   const handleApprove = async (requestId: string) => {
+    const remarks = reviewRemarks[requestId]?.trim() || '';
     setProcessingId(requestId);
     await withActionFeedback(async () => {
-      await apiService.approvePassRequest(requestId);
+      await apiService.approvePassRequest(requestId, remarks);
+      setReviewRemarks((current) => ({ ...current, [requestId]: '' }));
       await loadRequests();
-    }, 'Request approved successfully.');
+    }, user?.role === 'chaplaincy' ? 'Request moved to hall admin.' : 'Request approved successfully.');
     setProcessingId(null);
   };
 
   const handleReject = async (requestId: string) => {
-    const reason = rejectionReasons[requestId]?.trim();
+    const reason = reviewRemarks[requestId]?.trim();
 
     if (!reason) {
-      setActionError('Add a rejection reason before denying this request.');
+      setActionError('Add remarks before denying this request.');
       return;
     }
 
     setProcessingId(requestId);
     await withActionFeedback(async () => {
       await apiService.rejectPassRequest(requestId, reason);
-      setRejectionReasons((current) => ({ ...current, [requestId]: '' }));
+      setReviewRemarks((current) => ({ ...current, [requestId]: '' }));
       await loadRequests();
     }, 'Request denied and logged.');
     setProcessingId(null);
@@ -409,6 +427,29 @@ export default function AdminDashboardPage() {
       setHostelName('');
       await loadStaff();
     }, 'Hostel created.');
+  };
+
+  const handleCreateHoliday = async () => {
+    if (!holidayForm.title.trim()) {
+      setActionError('Add a holiday title before saving.');
+      return;
+    }
+
+    await withActionFeedback(async () => {
+      await apiService.createHoliday({
+        title: holidayForm.title,
+        description: holidayForm.description,
+        departureDate: new Date(`${holidayForm.departureDate}T08:00:00`),
+        expectedReturnDate: new Date(`${holidayForm.expectedReturnDate}T18:00:00`),
+      });
+      setHolidayForm({
+        title: '',
+        description: '',
+        departureDate: todayDate(),
+        expectedReturnDate: todayDate(),
+      });
+      await loadStaff();
+    }, 'Holiday booking window created.');
   };
 
   const handleCreateInvite = async () => {
@@ -601,8 +642,16 @@ export default function AdminDashboardPage() {
         >
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              label="Pending queue"
-              value={requestsLoading ? '...' : pendingRequests.length}
+              label={canManageApprovals ? 'Pending queue' : 'Pending staff'}
+              value={
+                canManageApprovals
+                  ? requestsLoading
+                    ? '...'
+                    : pendingRequests.length
+                  : governanceLoading
+                    ? '...'
+                    : pendingStaffApprovals.length
+              }
               icon={CheckCircle2}
             />
             <MetricCard
@@ -950,9 +999,9 @@ export default function AdminDashboardPage() {
             title="Pass approvals"
             description={
               user?.role === 'chaplaincy'
-                ? 'Review new requests.'
+                ? 'Review requests first and forward approved records to hall admin.'
                 : user?.role === 'hall_admin'
-                  ? 'Requests approved by chaplaincy for your hostel.'
+                  ? 'Give the final hostel decision and add remarks for the student.'
                   : 'Review approval queues.'
             }
           />
@@ -982,12 +1031,15 @@ export default function AdminDashboardPage() {
                       <InfoBlock label="Return" value={new Date(request.expectedReturnDate).toLocaleString()} />
                     </div>
                     <InfoBlock label="Reason" value={request.reason} />
+                    {request.chaplainApproval?.reason ? (
+                      <InfoBlock label="Chaplaincy remarks" value={request.chaplainApproval.reason} />
+                    ) : null}
                     <Textarea
-                      value={rejectionReasons[request.id] || ''}
+                      value={reviewRemarks[request.id] || ''}
                       onChange={(event) =>
-                        setRejectionReasons((current) => ({ ...current, [request.id]: event.target.value }))
+                        setReviewRemarks((current) => ({ ...current, [request.id]: event.target.value }))
                       }
-                      placeholder="Add a reason if you need to deny this request..."
+                      placeholder="Add remarks for the student. These remarks are included on approval or denial."
                       rows={3}
                       className="rounded-[1.25rem] border-slate-200 bg-white/85"
                     />
@@ -1002,12 +1054,12 @@ export default function AdminDashboardPage() {
                         ) : (
                           <CheckCircle2 className="mr-2 h-4 w-4" />
                         )}
-                        Approve
+                        {user?.role === 'chaplaincy' ? 'Approve and send to hall admin' : 'Approve'}
                       </Button>
                       <Button
                         variant="outline"
                         className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
-                        disabled={processingId === request.id || !rejectionReasons[request.id]?.trim()}
+                        disabled={processingId === request.id || !reviewRemarks[request.id]?.trim()}
                         onClick={() => handleReject(request.id)}
                       >
                         <XCircle className="mr-2 h-4 w-4" />
@@ -1164,6 +1216,86 @@ export default function AdminDashboardPage() {
                       {hostel.name}
                     </span>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {canManageHostels && (
+            <Card className="brand-panel border">
+              <CardHeader>
+                <CardTitle className="text-lg text-slate-950">Holiday booking windows</CardTitle>
+                <CardDescription className="text-slate-500">
+                  Create holiday slots that students can select directly from the request form.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label="Holiday title">
+                    <Input
+                      value={holidayForm.title}
+                      onChange={(event) => setHolidayForm((current) => ({ ...current, title: event.target.value }))}
+                      placeholder="Easter break"
+                      className="border-slate-200 bg-white/85"
+                    />
+                  </Field>
+                  <Field label="Description">
+                    <Input
+                      value={holidayForm.description}
+                      onChange={(event) => setHolidayForm((current) => ({ ...current, description: event.target.value }))}
+                      placeholder="Campus closes for the mid-semester break."
+                      className="border-slate-200 bg-white/85"
+                    />
+                  </Field>
+                  <Field label="Departure date">
+                    <Input
+                      type="date"
+                      value={holidayForm.departureDate}
+                      onChange={(event) =>
+                        setHolidayForm((current) => ({
+                          ...current,
+                          departureDate: event.target.value,
+                          expectedReturnDate:
+                            event.target.value > current.expectedReturnDate
+                              ? event.target.value
+                              : current.expectedReturnDate,
+                        }))
+                      }
+                      className="border-slate-200 bg-white/85"
+                    />
+                  </Field>
+                  <Field label="Return date">
+                    <Input
+                      type="date"
+                      min={holidayForm.departureDate}
+                      value={holidayForm.expectedReturnDate}
+                      onChange={(event) =>
+                        setHolidayForm((current) => ({ ...current, expectedReturnDate: event.target.value }))
+                      }
+                      className="border-slate-200 bg-white/85"
+                    />
+                  </Field>
+                </div>
+
+                <Button onClick={handleCreateHoliday} className="brand-cta rounded-full border-0">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create holiday window
+                </Button>
+
+                <div className="space-y-3">
+                  {holidays.length ? (
+                    holidays.map((holiday) => (
+                      <div key={holiday.id} className="rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3">
+                        <p className="font-medium text-slate-950">{holiday.title}</p>
+                        <p className="mt-1 text-sm text-slate-500">{holiday.description || 'No extra description.'}</p>
+                        <p className="mt-2 text-xs uppercase tracking-[0.22em] text-slate-400">
+                          {formatDateTime(holiday.departureDate)} to {formatDateTime(holiday.expectedReturnDate)}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500">No holiday windows created yet.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -47,6 +47,18 @@ const filters: Array<{ id: FilterId; label: string }> = [
   { id: 'rejected', label: 'Rejected' },
 ];
 
+function getApprovalCopy(label: string, approval?: Pass['chaplainApproval']) {
+  if (!approval) {
+    return `Waiting for ${label.toLowerCase()} review.`;
+  }
+
+  const actor = approval.approverName || approval.approverRole.replace('_', ' ');
+  const outcome = approval.status === 'approved' ? 'Approved' : 'Rejected';
+  const remarks = approval.reason ? ` Remarks: ${approval.reason}` : '';
+
+  return `${outcome} by ${actor} on ${formatDateTime(approval.approvedAt)}.${remarks}`;
+}
+
 export default function PassesPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -225,8 +237,20 @@ export default function PassesPage() {
                   <div className="grid gap-3">
                     <DetailBlock label="Departure" value={formatDateTime(selectedPass.departureDate)} />
                     <DetailBlock label="Return" value={formatDateTime(selectedPass.expectedReturnDate)} />
+                    <DetailBlock
+                      label="Actual return"
+                      value={
+                        selectedPass.actualReturnDate
+                          ? formatDateTime(selectedPass.actualReturnDate)
+                          : 'Not marked as returned yet'
+                      }
+                    />
                     <DetailBlock label="Duration" value={formatDurationDays(selectedPass.departureDate, selectedPass.expectedReturnDate)} />
                     <DetailBlock label="Stage" value={getPassStatusMeta(selectedPass).label} />
+                    <DetailBlock
+                      label="Return remarks"
+                      value={selectedPass.returnRemarks || 'No return remarks recorded.'}
+                    />
                   </div>
                 </SectionCard>
 
@@ -238,23 +262,25 @@ export default function PassesPage() {
                     <div className="rounded-[1.25rem] border border-white/70 bg-slate-50/90 p-4">
                       <p className="font-semibold text-slate-950">Chaplaincy</p>
                       <p className="mt-2 text-sm leading-6 text-slate-600">
-                        {selectedPass.chaplainApproval?.status === 'approved'
-                          ? `Approved ${formatDateTime(selectedPass.chaplainApproval.approvedAt)}.`
-                          : selectedPass.chaplainApproval?.status === 'rejected'
-                            ? `Rejected ${formatDateTime(selectedPass.chaplainApproval.approvedAt)}.`
-                            : 'Waiting for chaplaincy review.'}
+                        {getApprovalCopy('Chaplaincy', selectedPass.chaplainApproval)}
                       </p>
                     </div>
                     <div className="rounded-[1.25rem] border border-white/70 bg-slate-50/90 p-4">
                       <p className="font-semibold text-slate-950">Hall admin</p>
                       <p className="mt-2 text-sm leading-6 text-slate-600">
-                        {selectedPass.hallAdminApproval?.status === 'approved'
-                          ? `Approved ${formatDateTime(selectedPass.hallAdminApproval.approvedAt)}.`
-                          : selectedPass.hallAdminApproval?.status === 'rejected'
-                            ? `Rejected ${formatDateTime(selectedPass.hallAdminApproval.approvedAt)}.`
-                            : 'Waiting for hall admin review.'}
+                        {getApprovalCopy('Hall admin', selectedPass.hallAdminApproval)}
                       </p>
                     </div>
+                    {selectedPass.actualReturnDate ? (
+                      <div className="rounded-[1.25rem] border border-white/70 bg-slate-50/90 p-4">
+                        <p className="font-semibold text-slate-950">Return status</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          Marked returned on {formatDateTime(selectedPass.actualReturnDate)}
+                          {selectedPass.returnedByName ? ` by ${selectedPass.returnedByName}.` : '.'}
+                          {selectedPass.returnRemarks ? ` Remarks: ${selectedPass.returnRemarks}` : ''}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 </SectionCard>
               </div>

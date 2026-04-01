@@ -26,7 +26,7 @@ import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
 import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import { countPassesByStatus, formatDateTime, getPassStatusMeta } from '@/lib/platform';
-import type { Announcement, Pass } from '@/lib/types';
+import type { Announcement, Notification, Pass } from '@/lib/types';
 
 export default function DashboardPage() {
   const { user, isLoading } = useAuth();
@@ -34,6 +34,7 @@ export default function DashboardPage() {
   const [activePasses, setActivePasses] = useState<Pass[]>([]);
   const [passHistory, setPassHistory] = useState<Pass[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -56,15 +57,17 @@ export default function DashboardPage() {
     setLoadError('');
 
     try {
-      const [allPasses, activeStudentPasses, studentAnnouncements] = await Promise.all([
+      const [allPasses, activeStudentPasses, studentAnnouncements, studentNotifications] = await Promise.all([
         apiService.getStudentPasses(user!.id),
         apiService.getActiveStudentPasses(user!.id),
         apiService.getAnnouncements(user!.role),
+        apiService.getUserNotifications(user!.id),
       ]);
 
       setPassHistory(allPasses);
       setActivePasses(activeStudentPasses);
       setAnnouncements(studentAnnouncements.slice(0, 4));
+      setNotifications(studentNotifications.slice(0, 4));
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load your dashboard right now.');
     } finally {
@@ -146,8 +149,8 @@ export default function DashboardPage() {
               accentClassName="brand-icon-chip"
             />
             <MetricCard
-              label="History"
-              value={passHistory.length}
+              label="Alerts"
+              value={notifications.length}
               icon={Bell}
               accentClassName="brand-icon-chip"
             />
@@ -264,37 +267,67 @@ export default function DashboardPage() {
                 )}
               </SectionCard>
 
-              <SectionCard
-                title="Announcements"
-                description="Latest updates."
-              >
-                {announcements.length ? (
-                  <div className="space-y-3">
-                    {announcements.map((announcement) => (
-                      <div
-                        key={announcement.id}
-                        className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-slate-950">{announcement.title}</p>
-                            <p className="mt-2 text-sm leading-6 text-slate-600">
-                              {announcement.message}
-                            </p>
-                          </div>
+              <div className="space-y-6">
+                <SectionCard
+                  title="Notifications"
+                  description="Latest approval and return updates."
+                >
+                  {notifications.length ? (
+                    <div className="space-y-3">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4"
+                        >
+                          <p className="font-semibold text-slate-950">{notification.title}</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">
+                            {notification.message}
+                          </p>
+                          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+                            {formatDateTime(notification.createdAt)}
+                          </p>
                         </div>
-                        <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-400">
-                          {formatDateTime(announcement.createdAt)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm leading-7 text-slate-600">
-                    There are no announcements for you right now.
-                  </div>
-                )}
-              </SectionCard>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm leading-7 text-slate-600">
+                      No notifications yet.
+                    </div>
+                  )}
+                </SectionCard>
+
+                <SectionCard
+                  title="Announcements"
+                  description="Latest updates."
+                >
+                  {announcements.length ? (
+                    <div className="space-y-3">
+                      {announcements.map((announcement) => (
+                        <div
+                          key={announcement.id}
+                          className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-slate-950">{announcement.title}</p>
+                              <p className="mt-2 text-sm leading-6 text-slate-600">
+                                {announcement.message}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+                            {formatDateTime(announcement.createdAt)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm leading-7 text-slate-600">
+                      There are no announcements for you right now.
+                    </div>
+                  )}
+                </SectionCard>
+              </div>
             </div>
 
             <SectionCard

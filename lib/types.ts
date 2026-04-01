@@ -48,6 +48,7 @@ export interface User {
 
 export interface ApprovalRecord {
   approvedBy: string;
+  approverName?: string;
   approverRole: UserRole;
   approvedAt: ISODateString;
   status: ApprovalStatus;
@@ -84,6 +85,9 @@ export interface Pass {
   departureDate: ISODateString;
   expectedReturnDate: ISODateString;
   actualReturnDate?: ISODateString;
+  returnedBy?: string;
+  returnedByName?: string;
+  returnRemarks?: string;
   status: PassStatus;
   currentStage?: ApprovalStage;
   qrCode?: string;
@@ -112,12 +116,24 @@ export interface Announcement {
   createdAt: ISODateString;
 }
 
+export interface Holiday {
+  id: string;
+  title: string;
+  description: string;
+  departureDate: ISODateString;
+  expectedReturnDate: ISODateString;
+  createdBy: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
 export interface ScanLog {
   id: string;
   qrCode: string;
   passId?: string;
   studentId?: string;
   location: string;
+  eventType?: "scan" | "return";
   status: "success" | "failed";
   timestamp: ISODateString;
 }
@@ -151,6 +167,13 @@ export interface SubmitPassRequestInput {
   type: PassType;
   destination: string;
   reason: string;
+  departureDate: Date | ISODateString;
+  expectedReturnDate: Date | ISODateString;
+}
+
+export interface CreateHolidayInput {
+  title: string;
+  description: string;
   departureDate: Date | ISODateString;
   expectedReturnDate: Date | ISODateString;
 }

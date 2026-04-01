@@ -31,6 +31,7 @@ import {
 } from "./firebase/config";
 import {
   mapAnnouncement,
+  mapHoliday,
   mapHostel,
   mapNotification,
   mapPass,
@@ -47,6 +48,7 @@ import type {
   AnalyticsSummary,
   Announcement,
   CreateAdminInput,
+  CreateHolidayInput,
   CreateStaffInviteInput,
   CreatedAdminResult,
   Notification,
@@ -74,7 +76,7 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
-function getPrivilegedRoleByEmail(email?: string | null): User["role"] | null {
+function getPrivilegedRoleByEmail(email?: string | null): Exclude<User["role"], "student"> | null {
   const normalizedEmail = normalizeEmail(email || "");
 
   if (normalizedEmail === staffPortals.admin.leadEmail) {
@@ -122,7 +124,7 @@ async function getCurrentSignedInProfile() {
 
   const profile = mapUser(snapshot.id, snapshot.data());
 
-  if (tokenRole !== "student" && profile.role === "student") {
+  if (tokenRole !== profile.role) {
     return {
       ...profile,
       role: tokenRole,
@@ -154,6 +156,44 @@ function getStudentAccessDirectoryId(value: string) {
 
 function generateTemporaryPassword() {
   return `ExitPass!${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function getRoleDisplayName(role?: User["role"]) {
+  switch (role) {
+    case "chaplaincy":
+      return "Chaplaincy";
+    case "hall_admin":
+      return "Hall Admin";
+    case "security":
+      return "Security";
+    case "super_admin":
+      return "Super Admin";
+    default:
+      return "Staff";
+  }
+}
+
+function normalizeOptionalText(value?: string | null) {
+  return value?.trim() || "";
+}
+
+async function createNotificationRecord(input: {
+  userId: string;
+  title: string;
+  message: string;
+  type?: string;
+}) {
+  const notificationRef = await addDoc(collection(getFirebaseDb(), "notifications"), {
+    userId: input.userId,
+    type: input.type || "info",
+    title: input.title.trim(),
+    message: input.message.trim(),
+    read: false,
+    createdAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(notificationRef);
+  return mapNotification(snapshot.id, snapshot.data() || {});
 }
 
 function getDefaultPermissionsForRole(role: CreateAdminInput["role"]) {
@@ -381,16 +421,10 @@ export const apiService = {
       });
     }
 
-    if (currentUser.role === "super_admin") {
-      return requests.filter((request) =>
-        ["pending", "chaplaincy_required"].includes(request.status),
-      );
-    }
-
     return [];
   },
 
-  async approvePassRequest(requestId: string) {
+  async approvePassRequest(requestId: string, remarks?: string) {
     const actor = await getCurrentSignedInProfile();
     const requestRef = doc(getFirebaseDb(), "passRequests", requestId);
     const requestSnapshot = await getDoc(requestRef);
@@ -401,26 +435,35 @@ export const apiService = {
 
     const requestRecord = mapPassRequest(requestSnapshot.id, requestSnapshot.data());
     const batch = writeBatch(getFirebaseDb());
+    const reviewNote = normalizeOptionalText(remarks);
 
     if (
       (requestRecord.currentStage === "chaplaincy" || requestRecord.status === "chaplaincy_required") &&
-      (actor.role === "chaplaincy" || actor.role === "super_admin")
+      actor.role === "chaplaincy"
     ) {
       batch.update(requestRef, {
         status: "pending",
         currentStage: "hall_admin",
         chaplainApproval: {
           approvedBy: actor.id,
+          approverName: actor.name,
           approverRole: actor.role,
           approvedAt: serverTimestamp(),
           status: "approved",
+          ...(reviewNote ? { reason: reviewNote } : {}),
         },
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
+      await createNotificationRecord({
+        userId: requestRecord.studentId,
+        title: "Pass request moved to hall admin",
+        message: `${actor.name} (${getRoleDisplayName(actor.role)}) approved your request and forwarded it to hall admin.${reviewNote ? ` Remarks: ${reviewNote}` : ""}`,
+        type: "pass_update",
+      });
     } else if (
       requestRecord.currentStage === "hall_admin" &&
-      (actor.role === "hall_admin" || actor.role === "super_admin")
+      actor.role === "hall_admin"
     ) {
       if (
         actor.role === "hall_admin" &&
@@ -437,9 +480,11 @@ export const apiService = {
         approvedAt: serverTimestamp(),
         hallAdminApproval: {
           approvedBy: actor.id,
+          approverName: actor.name,
           approverRole: actor.role,
           approvedAt: serverTimestamp(),
           status: "approved",
+          ...(reviewNote ? { reason: reviewNote } : {}),
         },
         updatedAt: serverTimestamp(),
       });
@@ -457,15 +502,23 @@ export const apiService = {
         qrCode: `PASS_${requestId}_${Math.random().toString(16).slice(2, 14)}`,
         hallAdminApproval: {
           approvedBy: actor.id,
+          approverName: actor.name,
           approverRole: actor.role,
           approvedAt: serverTimestamp(),
           status: "approved",
+          ...(reviewNote ? { reason: reviewNote } : {}),
         },
         chaplainApproval: requestSnapshot.data()?.chaplainApproval || null,
         createdAt: requestSnapshot.data()?.createdAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
+      await createNotificationRecord({
+        userId: requestRecord.studentId,
+        title: "Pass request approved",
+        message: `${actor.name} (${getRoleDisplayName(actor.role)}) gave final approval to your request.${reviewNote ? ` Remarks: ${reviewNote}` : ""}`,
+        type: "pass_update",
+      });
     } else {
       throw new Error("You do not have access to approve this request at its current stage.");
     }
@@ -488,13 +541,12 @@ export const apiService = {
 
     if (
       stage === "chaplaincy" &&
-      actor.role !== "chaplaincy" &&
-      actor.role !== "super_admin"
+      actor.role !== "chaplaincy"
     ) {
       throw new Error("Only chapel can deny this request at this stage.");
     }
 
-    if (stage === "hall_admin" && actor.role !== "hall_admin" && actor.role !== "super_admin") {
+    if (stage === "hall_admin" && actor.role !== "hall_admin") {
       throw new Error("Only a hall admin can deny this request at this stage.");
     }
 
@@ -516,6 +568,7 @@ export const apiService = {
         ? {
             chaplainApproval: {
               approvedBy: actor.id,
+              approverName: actor.name,
               approverRole: actor.role,
               approvedAt: serverTimestamp(),
               status: "rejected",
@@ -525,12 +578,20 @@ export const apiService = {
         : {
             hallAdminApproval: {
               approvedBy: actor.id,
+              approverName: actor.name,
               approverRole: actor.role,
               approvedAt: serverTimestamp(),
               status: "rejected",
               reason,
             },
           }),
+    });
+
+    await createNotificationRecord({
+      userId: requestRecord.studentId,
+      title: "Pass request denied",
+      message: `${actor.name} (${getRoleDisplayName(actor.role)}) denied your request. Remarks: ${reason.trim()}`,
+      type: "pass_update",
     });
 
     const updatedRequest = await getDoc(requestRef);
@@ -589,6 +650,29 @@ export const apiService = {
 
     const snapshot = await getDocs(collection(getFirebaseDb(), "passes"));
     return sortByCreatedAtDesc(snapshot.docs.map((item) => mapPass(item.id, item.data())));
+  },
+
+  async getOverduePasses() {
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "security" && actor.role !== "super_admin") {
+      throw new Error("Only security can view overdue return alerts.");
+    }
+
+    const passes = await this.getAllPasses();
+    const now = Date.now();
+
+    return passes
+      .filter(
+        (pass) =>
+          pass.status === "approved" &&
+          !pass.actualReturnDate &&
+          new Date(pass.expectedReturnDate).getTime() < now,
+      )
+      .sort(
+        (left, right) =>
+          new Date(left.expectedReturnDate).getTime() - new Date(right.expectedReturnDate).getTime(),
+      );
   },
 
   async getAllStudents() {
@@ -676,6 +760,62 @@ export const apiService = {
     return [...snapshot.docs.map((item) => mapHostel(item.id, item.data()))].sort((left, right) =>
       left.name.localeCompare(right.name),
     );
+  },
+
+  async getHolidays() {
+    assertFirebaseReady();
+
+    const snapshot = await getDocs(collection(getFirebaseDb(), "holidays"));
+    return [...snapshot.docs.map((item) => mapHoliday(item.id, item.data()))].sort(
+      (left, right) =>
+        new Date(left.departureDate).getTime() - new Date(right.departureDate).getTime(),
+    );
+  },
+
+  async getBookableHolidays() {
+    const holidays = await this.getHolidays();
+    const now = Date.now();
+
+    return holidays.filter((holiday) => new Date(holiday.expectedReturnDate).getTime() >= now);
+  },
+
+  async createHoliday(input: CreateHolidayInput) {
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "super_admin") {
+      throw new Error("Only the super admin can create holidays.");
+    }
+
+    const title = input.title.trim();
+    const description = input.description.trim();
+
+    if (!title) {
+      throw new Error("Holiday title is required.");
+    }
+
+    const departureDate = new Date(input.departureDate);
+    const expectedReturnDate = new Date(input.expectedReturnDate);
+
+    if (
+      Number.isNaN(departureDate.getTime()) ||
+      Number.isNaN(expectedReturnDate.getTime()) ||
+      expectedReturnDate <= departureDate
+    ) {
+      throw new Error("Holiday return date must be after the departure date.");
+    }
+
+    const holidayRef = await addDoc(collection(getFirebaseDb(), "holidays"), {
+      title,
+      description,
+      departureDate: Timestamp.fromDate(departureDate),
+      expectedReturnDate: Timestamp.fromDate(expectedReturnDate),
+      createdBy: actor.id,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const snapshot = await getDoc(holidayRef);
+    return mapHoliday(snapshot.id, snapshot.data() || {});
   },
 
   async createHostel(name: string) {
@@ -807,7 +947,8 @@ export const apiService = {
       throw new Error("Valid name, email, and password are required.");
     }
 
-    let role: Exclude<User["role"], "student" | "super_admin"> | undefined = directRole;
+    let role: Exclude<User["role"], "student"> | undefined =
+      getPrivilegedRoleByEmail(normalizedEmail) || directRole;
     let hostel = "";
     let hostelId = "";
     const approvalStatus: User["approvalStatus"] = "approved";
@@ -1068,17 +1209,12 @@ export const apiService = {
       throw new Error("You do not have permission to send notifications.");
     }
 
-    const notificationRef = await addDoc(collection(getFirebaseDb(), "notifications"), {
+    return createNotificationRecord({
       userId,
+      title,
+      message,
       type: "info",
-      title: title.trim(),
-      message: message.trim(),
-      read: false,
-      createdAt: serverTimestamp(),
     });
-
-    const snapshot = await getDoc(notificationRef);
-    return mapNotification(snapshot.id, snapshot.data() || {});
   },
 
   async getUserNotifications(userId: string) {
@@ -1167,13 +1303,43 @@ export const apiService = {
     const now = Date.now();
     const departure = new Date(pass.departureDate).getTime();
     const expectedReturn = new Date(pass.expectedReturnDate).getTime();
-    const isValid =
-      pass.status === "approved" && departure <= now && expectedReturn >= now;
+
+    if (pass.actualReturnDate || pass.status === "completed") {
+      return mapPassVerificationResult({
+        pass,
+        isValid: false,
+        message: "This pass has already been marked as returned.",
+      });
+    }
+
+    if (pass.status !== "approved") {
+      return mapPassVerificationResult({
+        pass,
+        isValid: false,
+        message: "Pass is not currently cleared for use.",
+      });
+    }
+
+    if (departure > now) {
+      return mapPassVerificationResult({
+        pass,
+        isValid: false,
+        message: "Pass is not active yet.",
+      });
+    }
+
+    if (expectedReturn < now) {
+      return mapPassVerificationResult({
+        pass,
+        isValid: false,
+        message: "Student is overdue and has not been marked as returned.",
+      });
+    }
 
     return mapPassVerificationResult({
       pass,
-      isValid,
-      message: isValid ? "Pass verified successfully." : "Pass is not currently active.",
+      isValid: true,
+      message: "Pass verified successfully.",
     });
   },
 
@@ -1181,13 +1347,14 @@ export const apiService = {
     return this.logScan(qrCode, location);
   },
 
-  async logScan(qrCode: string, location: string) {
+  async logScan(qrCode: string, location: string, eventType: "scan" | "return" = "scan") {
     const verification = await this.verifyQRCode(qrCode);
     const scanRef = await addDoc(collection(getFirebaseDb(), "scans"), {
       qrCode: qrCode.trim(),
       passId: verification.pass?.id || "",
       studentId: verification.pass?.studentId || "",
       location: location.trim() || "Main Gate",
+      eventType,
       status: verification.isValid ? "success" : "failed",
       timestamp: serverTimestamp(),
     });
@@ -1204,6 +1371,62 @@ export const apiService = {
     );
 
     return snapshot.docs.map((item) => mapScanLog(item.id, item.data()));
+  },
+
+  async markPassReturned(passId: string, remarks?: string) {
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "security") {
+      throw new Error("Only security can mark a pass as returned.");
+    }
+
+    const passRef = doc(getFirebaseDb(), "passes", passId);
+    const passSnapshot = await getDoc(passRef);
+
+    if (!passSnapshot.exists()) {
+      throw new Error("Pass not found.");
+    }
+
+    const pass = mapPass(passSnapshot.id, passSnapshot.data());
+
+    if (pass.actualReturnDate || pass.status === "completed") {
+      throw new Error("This pass has already been marked as returned.");
+    }
+
+    if (pass.status !== "approved") {
+      throw new Error("Only approved passes can be marked as returned.");
+    }
+
+    const returnRemarks = normalizeOptionalText(remarks);
+
+    await updateDoc(passRef, {
+      status: "completed",
+      actualReturnDate: serverTimestamp(),
+      returnedBy: actor.id,
+      returnedByName: actor.name,
+      returnRemarks,
+      updatedAt: serverTimestamp(),
+    });
+
+    await addDoc(collection(getFirebaseDb(), "scans"), {
+      qrCode: pass.qrCode || `RETURN_${pass.id}`,
+      passId: pass.id,
+      studentId: pass.studentId,
+      location: "Return Gate",
+      eventType: "return",
+      status: "success",
+      timestamp: serverTimestamp(),
+    });
+
+    await createNotificationRecord({
+      userId: pass.studentId,
+      title: "Return recorded",
+      message: `${actor.name} (${getRoleDisplayName(actor.role)}) marked you as returned.${returnRemarks ? ` Remarks: ${returnRemarks}` : ""}`,
+      type: "return_update",
+    });
+
+    const updatedPass = await getDoc(passRef);
+    return mapPass(updatedPass.id, updatedPass.data() || {});
   },
 
   isConfigured() {
