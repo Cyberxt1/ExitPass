@@ -95,7 +95,7 @@ function getPrivilegedRoleByEmail(email?: string | null): User["role"] | null {
   return null;
 }
 
-async function getRoleFromAuth(firebaseUser: FirebaseUser): Promise<User["role"]> {
+async function getRoleFromAuth(firebaseUser: FirebaseUser): Promise<User["role"] | null> {
   const tokenResult = await firebaseUser.getIdTokenResult();
   const claimedRole = tokenResult.claims.role;
 
@@ -103,7 +103,7 @@ async function getRoleFromAuth(firebaseUser: FirebaseUser): Promise<User["role"]
     return claimedRole as User["role"];
   }
 
-  return getPrivilegedRoleByEmail(firebaseUser.email) || "student";
+  return getPrivilegedRoleByEmail(firebaseUser.email);
 }
 
 function readPendingProfile(uid: string): PendingStudentProfile | null {
@@ -473,7 +473,7 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
       name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
       email: firebaseUser.email || "",
       matric: "",
-      role: tokenRole,
+      role: tokenRole || "student",
       photo: firebaseUser.photoURL || undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -482,7 +482,7 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
 
   const profile = mapUser(snapshot.id, snapshot.data());
   const resolvedProfile =
-    tokenRole !== profile.role
+    tokenRole && tokenRole !== profile.role
       ? {
           ...profile,
           role: tokenRole,

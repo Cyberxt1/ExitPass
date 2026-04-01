@@ -271,8 +271,13 @@ export function AccessCenter() {
     }
 
     if (step === "residence") {
+      if (!hostels.length) {
+        setError("No hostels are available yet. Ask the super admin to create hostels first.");
+        return;
+      }
+
       if (!formData.hostel.trim() || !formData.room.trim()) {
-        setError("Enter your hostel name and room or hostel number.");
+        setError("Select your hostel and enter your room number.");
         return;
       }
 
@@ -540,29 +545,24 @@ export function AccessCenter() {
             {step === "residence" ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Hostel">
-                  {hostels.length ? (
-                    <select
-                      value={formData.hostel}
-                      onChange={(event) => handleChange("hostel", event.target.value)}
-                      className="flex h-10 w-full rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-950"
-                      disabled={isLoading}
-                    >
-                      <option value="">Select hostel</option>
-                      {hostels.map((hostel) => (
-                        <option key={hostel.id} value={hostel.name}>
-                          {hostel.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <Input
-                      value={formData.hostel}
-                      onChange={(event) => handleChange("hostel", event.target.value)}
-                      placeholder="Hostel"
-                      className="border-slate-200 bg-white/80"
-                      disabled={isLoading}
-                    />
-                  )}
+                  <select
+                    value={formData.hostel}
+                    onChange={(event) => handleChange("hostel", event.target.value)}
+                    className="flex h-10 w-full rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isLoading || !hostels.length}
+                  >
+                    <option value="">{hostels.length ? "Select hostel" : "No hostels available"}</option>
+                    {hostels.map((hostel) => (
+                      <option key={hostel.id} value={hostel.name}>
+                        {hostel.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!hostels.length ? (
+                    <p className="text-xs text-slate-500">
+                      The super admin needs to create hostel options before students can continue.
+                    </p>
+                  ) : null}
                 </Field>
                 <Field label="Room number">
                   <Input

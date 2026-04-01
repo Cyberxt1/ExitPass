@@ -106,7 +106,7 @@ async function getCurrentSignedInProfile() {
   const tokenRole =
     typeof tokenResult.claims.role === "string"
       ? (tokenResult.claims.role as User["role"])
-      : getPrivilegedRoleByEmail(authUser.email) || "student";
+      : getPrivilegedRoleByEmail(authUser.email);
 
   if (!snapshot.exists()) {
     return {
@@ -114,7 +114,7 @@ async function getCurrentSignedInProfile() {
       name: authUser.displayName || authUser.email?.split("@")[0] || "User",
       email: authUser.email || "",
       matric: "",
-      role: tokenRole,
+      role: tokenRole || "student",
       photo: authUser.photoURL || undefined,
       permissions: [],
       createdAt: new Date().toISOString(),
@@ -124,7 +124,7 @@ async function getCurrentSignedInProfile() {
 
   const profile = mapUser(snapshot.id, snapshot.data());
 
-  if (tokenRole !== profile.role) {
+  if (tokenRole && tokenRole !== profile.role) {
     return {
       ...profile,
       role: tokenRole,
