@@ -18,6 +18,7 @@ const PUBLIC_ROUTES = [
   "/signup",
   "/staff-join",
   "/forgot-password",
+  "/reset-password",
 ];
 
 function isPublicRoute(pathname: string) {

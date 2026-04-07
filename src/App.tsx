@@ -18,6 +18,7 @@ import FaqsPage from "@/app/faqs/page";
 import ForgotPasswordPage from "@/app/forgot-password/page";
 import HelpPage from "@/app/help/page";
 import LoginPage from "@/app/login/page";
+import ResetPasswordPage from "@/app/reset-password/page";
 import SecurityPortalPage from "@/app/security/page";
 import SecurityLoginPage from "@/app/security/login/page";
 import SecuritySignupPage from "@/app/security/signup/page";
@@ -35,6 +36,7 @@ export function App() {
           <Route path="/faqs" element={<FaqsPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/staff-join" element={<StaffJoinPage />} />

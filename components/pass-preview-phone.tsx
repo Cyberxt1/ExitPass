@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Bell, CheckCircle2, QrCode, ScanLine } from "lucide-react";
 
 type PreviewRow = {
@@ -20,6 +21,8 @@ export function PassPreviewPhone({
   badge = "Live",
   rows,
   stages,
+  screenshotSrc,
+  screenshotAlt = "ExitPass preview screenshot",
 }: {
   eyebrow: string;
   title: string;
@@ -27,13 +30,30 @@ export function PassPreviewPhone({
   badge?: string;
   rows: PreviewRow[];
   stages: PreviewStage[];
+  screenshotSrc?: string;
+  screenshotAlt?: string;
 }) {
+  const [showScreenshot, setShowScreenshot] = useState(Boolean(screenshotSrc));
+
+  useEffect(() => {
+    setShowScreenshot(Boolean(screenshotSrc));
+  }, [screenshotSrc]);
+
   return (
     <div className="relative flex justify-center">
       <div className="absolute inset-x-6 top-4 h-16 rounded-full bg-[#90cbf8]/25 blur-3xl" />
       <div className="relative h-[430px] w-[220px] rounded-[2.5rem] border border-white/15 bg-[linear-gradient(145deg,#1a2744_0%,#0d1c38_60%,#081221_100%)] p-3 shadow-[0_40px_120px_-50px_rgba(0,0,0,0.95),0_12px_28px_rgba(90,172,240,0.12)]">
         <div className="absolute left-1/2 top-0 h-3 w-20 -translate-x-1/2 rounded-b-2xl bg-black/80" />
         <div className="flex h-full flex-col overflow-hidden rounded-[2rem] border border-white/6 bg-[linear-gradient(180deg,#0d1e3d_0%,#091426_100%)] px-4 py-5">
+          {showScreenshot && screenshotSrc ? (
+            <img
+              src={screenshotSrc}
+              alt={screenshotAlt}
+              className="h-full w-full rounded-[1.6rem] object-cover"
+              onError={() => setShowScreenshot(false)}
+            />
+          ) : (
+            <>
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-[0.55rem] uppercase tracking-[0.28em] text-[#7a94b0]">{eyebrow}</p>
@@ -85,6 +105,8 @@ export function PassPreviewPhone({
               <ScanLine className="h-4 w-4" />
             </CircleIcon>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

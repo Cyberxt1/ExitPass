@@ -100,6 +100,8 @@ export function mapUser(id: string, value: UnknownRecord): User {
   return {
     id,
     name: typeof value.name === "string" ? value.name : "Unnamed User",
+    nameChangeCount:
+      typeof value.nameChangeCount === "number" ? value.nameChangeCount : undefined,
     email: typeof value.email === "string" ? value.email : "",
     matric: typeof value.matric === "string" ? value.matric : "",
     role: (typeof value.role === "string" ? value.role : "student") as User["role"],

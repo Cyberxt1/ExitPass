@@ -39,6 +39,7 @@ import {
   normalizeStudentProfileDetails,
   parseStudentLevel,
 } from "./student-profile";
+import { getPasswordResetActionSettings } from "./password-reset";
 import { staffPortals } from "./staff-portals";
 import type { StudentSignupInput, User } from "./types";
 
@@ -285,6 +286,7 @@ async function writeStudentProfile(profile: PendingStudentProfile) {
 
   batch.set(doc(db, "users", profile.uid), {
     name: profile.name,
+    nameChangeCount: 0,
     email: profile.email,
     matric: normalizedMatric,
     matricNormalized: normalizedMatric,
@@ -720,7 +722,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-          await sendPasswordResetEmail(getFirebaseAuth(), email.trim().toLowerCase());
+          await sendPasswordResetEmail(
+            getFirebaseAuth(),
+            email.trim().toLowerCase(),
+            getPasswordResetActionSettings(),
+          );
         } catch (nextError) {
           throw new Error(getReadableAuthError(nextError, "Unable to send reset email."));
         }

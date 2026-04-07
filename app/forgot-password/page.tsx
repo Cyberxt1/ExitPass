@@ -40,7 +40,8 @@ export default function ForgotPasswordPage() {
           <CardHeader className="space-y-3">
             <CardTitle className="text-3xl font-semibold text-slate-950">Reset your password</CardTitle>
             <CardDescription className="text-base text-slate-500">
-              Enter the email tied to your account and Firebase will send a reset link.
+              Enter the email tied to your account and we will send a reset link that opens the
+              dedicated ExitPass password reset screen.
             </CardDescription>
           </CardHeader>
 
@@ -70,7 +71,8 @@ export default function ForgotPasswordPage() {
                 <div className="flex gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-3">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                   <p className="text-sm text-slate-700">
-                    Reset email sent. Check your inbox and spam folder.
+                    Reset email sent. Check your inbox and spam folder, then open the link to set a
+                    new password.
                   </p>
                 </div>
               )}

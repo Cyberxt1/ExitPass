@@ -48,6 +48,7 @@ import {
   normalizeStudentProfileDetails,
   parseStudentLevel,
 } from "./student-profile";
+import { getPasswordResetActionSettings } from "./password-reset";
 import type {
   AnalyticsSummary,
   Announcement,
@@ -426,6 +427,7 @@ export const apiService = {
     const userRef = doc(getFirebaseDb(), "users", uid);
     await setDoc(userRef, {
       name: input.name.trim(),
+      nameChangeCount: 0,
       email: normalizedEmail,
       matric: normalizedMatric,
       matricNormalized: normalizedMatric,
@@ -459,6 +461,65 @@ export const apiService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+
+    const snapshot = await getDoc(userRef);
+    return mapUser(snapshot.id, snapshot.data() || {});
+  },
+
+  async updateStudentProfile(
+    userId: string,
+    data: Pick<User, "name">,
+  ) {
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "student" || actor.id !== userId) {
+      throw new Error("Only the signed-in student can update this profile.");
+    }
+
+    const name = data.name.trim();
+
+    if (!name) {
+      throw new Error("Name is required.");
+    }
+
+    const currentNameChangeCount = actor.nameChangeCount ?? 0;
+    const isNameChanged = name !== actor.name;
+
+    if (isNameChanged && currentNameChangeCount >= 2) {
+      throw new Error("You have already used your 2 allowed name changes.");
+    }
+
+    if (!isNameChanged) {
+      return actor;
+    }
+
+    const nextNameChangeCount = currentNameChangeCount + 1;
+    const db = getFirebaseDb();
+    const userRef = doc(db, "users", userId);
+
+    await updateDoc(userRef, {
+      name,
+      nameChangeCount: nextNameChangeCount,
+      updatedAt: serverTimestamp(),
+    });
+
+    await setDoc(
+      doc(db, "studentAccessDirectory", getStudentAccessDirectoryId(actor.matric)),
+      {
+        userId,
+        directoryId: getStudentAccessDirectoryId(actor.matric),
+        role: "student",
+        name,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    const currentAuthUser = getFirebaseAuth().currentUser;
+
+    if (currentAuthUser && currentAuthUser.uid === userId) {
+      await updateProfile(currentAuthUser, { displayName: name });
+    }
 
     const snapshot = await getDoc(userRef);
     return mapUser(snapshot.id, snapshot.data() || {});
@@ -1317,7 +1378,11 @@ export const apiService = {
   },
 
   async sendUserPasswordReset(email: string) {
-    await sendPasswordResetEmail(getFirebaseAuth(), normalizeEmail(email));
+    await sendPasswordResetEmail(
+      getFirebaseAuth(),
+      normalizeEmail(email),
+      getPasswordResetActionSettings(),
+    );
     return true;
   },
 

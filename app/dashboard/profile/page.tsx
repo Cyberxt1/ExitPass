@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertCircle,
   BookOpen,
   Building2,
+  CheckCircle2,
   DoorOpen,
   IdCard,
+  Loader2,
   LogOut,
   Mail,
+  PencilLine,
   Phone,
   ShieldCheck,
   User,
@@ -24,6 +28,7 @@ import {
   StatusBadge,
 } from '@/components/platform-ui';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
 import { getDefaultRouteForRole } from '@/lib/firebase/auth';
@@ -31,10 +36,14 @@ import { getRoleLabel } from '@/lib/platform';
 import type { Pass } from '@/lib/types';
 
 export default function ProfilePage() {
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout, isLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [passes, setPasses] = useState<Pass[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [editableName, setEditableName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [nameSuccess, setNameSuccess] = useState('');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -58,6 +67,10 @@ export default function ProfilePage() {
       .then(setPasses)
       .finally(() => setDataLoading(false));
   }, [user?.id, user?.role]);
+
+  useEffect(() => {
+    setEditableName(user?.name || '');
+  }, [user?.name]);
 
   const handleLogout = () => {
     void logout().finally(() => {
@@ -85,6 +98,44 @@ export default function ProfilePage() {
   if (user.role !== 'student') {
     return null;
   }
+
+  const nameChangeCount = user.nameChangeCount ?? 0;
+  const remainingNameChanges = Math.max(0, 2 - nameChangeCount);
+
+  const handleSaveName = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setNameError('');
+    setNameSuccess('');
+
+    const trimmedName = editableName.trim();
+
+    if (!trimmedName) {
+      setNameError('Name is required.');
+      return;
+    }
+
+    if (trimmedName === user.name) {
+      setNameSuccess('Your name is already up to date.');
+      return;
+    }
+
+    if (remainingNameChanges <= 0) {
+      setNameError('You have already used your 2 allowed name changes.');
+      return;
+    }
+
+    setIsSavingName(true);
+
+    try {
+      await apiService.updateStudentProfile(user.id, { name: trimmedName });
+      await refreshUser();
+      setNameSuccess('Your name has been updated successfully.');
+    } catch (error) {
+      setNameError(error instanceof Error ? error.message : 'Unable to update your name.');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
 
   return (
     <DashboardShell title="My Profile" contentClassName="mx-auto max-w-7xl">
@@ -196,6 +247,74 @@ export default function ProfilePage() {
             </SectionCard>
 
             <div className="space-y-6">
+              <SectionCard
+                title="Profile edits"
+                description="You can update your name up to 2 times."
+              >
+                <form onSubmit={handleSaveName} className="space-y-4">
+                  <div className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                      Name changes used
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-950">
+                      {nameChangeCount} / 2
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      {remainingNameChanges > 0
+                        ? `${remainingNameChanges} change${remainingNameChanges === 1 ? '' : 's'} remaining.`
+                        : 'You have reached the maximum number of name changes.'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Full name</label>
+                    <Input
+                      value={editableName}
+                      onChange={(event) => setEditableName(event.target.value)}
+                      className="h-12 rounded-2xl border-slate-200 bg-white/80"
+                      disabled={isSavingName || remainingNameChanges <= 0}
+                    />
+                  </div>
+
+                  {nameError ? (
+                    <div className="flex gap-3 rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4">
+                      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-600" />
+                      <p className="text-sm leading-6 text-rose-700">{nameError}</p>
+                    </div>
+                  ) : null}
+
+                  {nameSuccess ? (
+                    <div className="flex gap-3 rounded-[1.25rem] border border-emerald-200 bg-emerald-50 p-4">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                      <p className="text-sm leading-6 text-emerald-700">{nameSuccess}</p>
+                    </div>
+                  ) : null}
+
+                  <Button
+                    type="submit"
+                    disabled={
+                      isSavingName ||
+                      remainingNameChanges <= 0 ||
+                      editableName.trim().length === 0 ||
+                      editableName.trim() === user.name
+                    }
+                    className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
+                  >
+                    {isSavingName ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <PencilLine className="mr-2 h-4 w-4" />
+                        Save name
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </SectionCard>
+
               <SectionCard
                 title="Access"
                 description="Current account access."

@@ -166,6 +166,8 @@ export function HomeLanding({ user }: { user: User | null }) {
                   eyebrow="ExitPass"
                   title="Request Summary"
                   summary="Hall exit approved for Friday movement to town."
+                  screenshotSrc="/der.jpg"
+                  screenshotAlt="ExitPass app screenshot"
                   rows={[
                     { label: "Destination", value: "Town" },
                     { label: "Departure", value: "Fri · 4:00 PM" },

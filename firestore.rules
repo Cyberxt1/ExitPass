@@ -207,6 +207,29 @@
           );
       }
 
+      function studentNameChangeCount(data) {
+        return data != null && data.nameChangeCount is int
+          ? data.nameChangeCount
+          : 0;
+      }
+
+      function isValidStudentNameUpdate() {
+        return request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.nameChangeCount is int
+          && (
+            (
+              request.resource.data.name == resource.data.name
+              && request.resource.data.nameChangeCount == studentNameChangeCount(resource.data)
+            )
+            || (
+              request.resource.data.name != resource.data.name
+              && request.resource.data.nameChangeCount == studentNameChangeCount(resource.data) + 1
+              && request.resource.data.nameChangeCount <= 2
+            )
+          );
+      }
+
       function canCreateStaffProfile(userId) {
         return isOwner(userId)
           && request.resource.data.role in ['hall_admin', 'chaplaincy', 'security', 'super_admin']
@@ -384,6 +407,7 @@
             isOwner(userId)
             && resource.data.role == 'student'
             && request.resource.data.role == resource.data.role
+            && isValidStudentNameUpdate()
             && request.resource.data.email == resource.data.email
             && hasValidStudentProfileFields()
             && request.resource.data.permissions == resource.data.permissions

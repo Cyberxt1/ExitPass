@@ -25,6 +25,7 @@ export type ISODateString = string;
 export interface User {
   id: string;
   name: string;
+  nameChangeCount?: number;
   email: string;
   matric: string;
   role: UserRole;
