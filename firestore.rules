@@ -300,6 +300,30 @@
           );
       }
 
+      function canSelfRenameStudentAccessDirectory(directoryId) {
+        return isSignedIn()
+          && resource != null
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.directoryId == directoryId
+          && request.resource.data.directoryId == resource.data.directoryId
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.matric == resource.data.matric
+          && request.resource.data.matricNormalized == resource.data.matricNormalized
+          && request.resource.data.department == resource.data.department
+          && request.resource.data.faculty == resource.data.faculty
+          && request.resource.data.level == resource.data.level
+          && request.resource.data.hostel == resource.data.hostel
+          && request.resource.data.room == resource.data.room
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name',
+            'updatedAt'
+          ]);
+      }
+
       function canWriteStaffInviteDirectory(emailId) {
         return isSignedIn()
           && isPrivileged()
@@ -436,7 +460,9 @@
 
       match /studentAccessDirectory/{directoryId} {
         allow read: if true;
-        allow create, update: if canWriteStudentAccessDirectory(directoryId);
+        allow create: if canWriteStudentAccessDirectory(directoryId);
+        allow update: if canWriteStudentAccessDirectory(directoryId)
+          || canSelfRenameStudentAccessDirectory(directoryId);
         allow delete: if isSignedIn() && isPrivileged();
       }
 
