@@ -8,13 +8,12 @@ import {
   CheckCircle2,
   Clock3,
   Loader2,
-  MapPin,
   Sparkles,
 } from 'lucide-react';
 
 import { DashboardShell } from '@/components/dashboard-shell';
+import { PassPreviewPhone } from '@/components/pass-preview-phone';
 import {
-  DetailBlock,
   PageHero,
   SectionCard,
   StatusBadge,
@@ -64,6 +63,20 @@ function toTimeInputValue(value?: string | null) {
   }
 
   return new Date(value).toISOString().slice(11, 16);
+}
+
+function formatPreviewDateTime(date: Date) {
+  if (Number.isNaN(date.getTime())) {
+    return 'Choose time';
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
 
 export default function RequestPassPage() {
@@ -137,6 +150,62 @@ export default function RequestPassPage() {
 
     return '';
   }, [departureDateTime, formData.destination, formData.reason, formData.type, returnDateTime, selectedHolidayId]);
+
+  const previewSummary = useMemo(() => {
+    const passLabel = getPassTypeLabel(formData.type);
+    const destination = selectedHoliday ? selectedHoliday.title : formData.destination.trim();
+
+    if (!destination) {
+      return `${passLabel} request waiting for destination and trip details.`;
+    }
+
+    return `${passLabel} request for ${destination}.`;
+  }, [formData.destination, formData.type, selectedHoliday]);
+
+  const previewRows = useMemo(
+    () => [
+      {
+        label: 'Destination',
+        value: selectedHoliday ? selectedHoliday.title : formData.destination.trim() || 'Add details',
+      },
+      {
+        label: 'Departure',
+        value: selectedHoliday
+          ? formatPreviewDateTime(new Date(selectedHoliday.departureDate))
+          : formatPreviewDateTime(departureDateTime),
+      },
+      {
+        label: 'Return',
+        value: selectedHoliday
+          ? formatPreviewDateTime(new Date(selectedHoliday.expectedReturnDate))
+          : formatPreviewDateTime(returnDateTime),
+      },
+      {
+        label: 'Status',
+        value: validationMessage ? 'Draft' : 'Ready to review',
+        accent: !validationMessage,
+      },
+    ],
+    [departureDateTime, formData.destination, returnDateTime, selectedHoliday, validationMessage],
+  );
+
+  const previewStages = useMemo(
+    () => [
+      {
+        title: 'Chaplaincy',
+        text: formData.reason.trim()
+          ? 'First review sees your destination, timing, and reason together.'
+          : 'First review starts once you add a clear reason for movement.',
+      },
+      {
+        title: 'Hall Admin',
+        text: user?.hostel
+          ? `${user.hostel} review completes the request after chaplaincy approval.`
+          : 'Hostel review completes the request after chaplaincy approval.',
+      },
+    ],
+    [formData.reason, user?.hostel],
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -442,45 +511,42 @@ export default function RequestPassPage() {
 
           <div className="space-y-6">
             <SectionCard
-              title="Live summary"
-              description="Preview before you submit."
+              title="Live preview"
+              description="This is the same request card reviewers will recognize."
             >
-              <div className="space-y-4">
-                <div className="brand-panel-soft rounded-[1.75rem] border p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-5">
+                <PassPreviewPhone
+                  eyebrow={user?.hostel || 'ExitPass'}
+                  title="Request Preview"
+                  summary={previewSummary}
+                  badge={validationMessage ? 'Draft' : 'Ready'}
+                  rows={previewRows}
+                  stages={previewStages}
+                />
+
+                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4">
+                  <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
                         Selected pass
                       </p>
-                      <p className="mt-3 text-2xl font-semibold text-slate-950">
+                      <p className="mt-2 text-xl font-semibold text-slate-950">
                         {getPassTypeLabel(formData.type)}
                       </p>
                     </div>
-                    <StatusBadge label="Ready to review" tone="border-blue-200 bg-blue-50 text-blue-800" />
+                    <StatusBadge
+                      label={validationMessage ? 'Draft' : 'Ready to review'}
+                      tone={
+                        validationMessage
+                          ? 'border-amber-200 bg-amber-50 text-amber-800'
+                          : 'border-blue-200 bg-blue-50 text-blue-800'
+                      }
+                    />
                   </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                    {formData.reason || 'Add a clear reason so chaplaincy and hall admin can review faster.'}
+                  </p>
                 </div>
-
-                <DetailBlock
-                  label="Destination"
-                  value={
-                    <div className="flex items-start gap-2">
-                      <MapPin className="mt-1 h-4 w-4 text-slate-500" />
-                      <span>{formData.destination || 'Add where you are going.'}</span>
-                    </div>
-                  }
-                />
-                <DetailBlock
-                  label="Departure"
-                  value={formatDateTime(Number.isNaN(departureDateTime.getTime()) ? undefined : departureDateTime.toISOString())}
-                />
-                <DetailBlock
-                  label="Return"
-                  value={formatDateTime(Number.isNaN(returnDateTime.getTime()) ? undefined : returnDateTime.toISOString())}
-                />
-                <DetailBlock
-                  label="Reason"
-                  value={formData.reason || 'Explain the purpose of this trip for reviewers.'}
-                />
               </div>
             </SectionCard>
 
