@@ -29,6 +29,17 @@ import { apiService } from '@/lib/api-service';
 import { useAuth } from '@/lib/auth-context';
 import { isAdminRole } from '@/lib/firebase/auth';
 import { formatDateTime, getRoleLabel } from '@/lib/platform';
+import {
+  FACULTY_OPTIONS,
+  LEVEL_OPTIONS,
+  ROOM_FORMAT_HINT,
+  getDepartmentsForFaculty,
+  isValidDepartmentForFaculty,
+  isValidRoom,
+  normalizeFaculty,
+  normalizeRoom,
+  parseStudentLevel,
+} from '@/lib/student-profile';
 import { getPortalForRole } from '@/lib/staff-portals';
 import type {
   AnalyticsSummary,
@@ -141,7 +152,11 @@ function getAllowedInviteRoles(role?: User['role']) {
   return [];
 }
 
-const INITIAL_STUDENT_FORM: StudentSignupInput = {
+type StudentAccountFormState = Omit<StudentSignupInput, 'level'> & {
+  level: string;
+};
+
+const INITIAL_STUDENT_FORM: StudentAccountFormState = {
   name: '',
   email: '',
   matric: '',
@@ -200,7 +215,7 @@ export default function AdminDashboardPage() {
     role: 'hall_admin',
     hostel: '',
   });
-  const [studentAccountForm, setStudentAccountForm] = useState<StudentSignupInput>(INITIAL_STUDENT_FORM);
+  const [studentAccountForm, setStudentAccountForm] = useState<StudentAccountFormState>(INITIAL_STUDENT_FORM);
   const [reviewRemarks, setReviewRemarks] = useState<Record<string, string>>({});
   const [staffApprovalReasons, setStaffApprovalReasons] = useState<Record<string, string>>({});
   const [requestsLoading, setRequestsLoading] = useState(true);
@@ -239,6 +254,10 @@ export default function AdminDashboardPage() {
   ]);
 
   const inviteOptions = useMemo(() => getAllowedInviteRoles(user?.role), [user?.role]);
+  const studentDepartmentOptions = useMemo(
+    () => getDepartmentsForFaculty(studentAccountForm.faculty),
+    [studentAccountForm.faculty],
+  );
 
   useEffect(() => {
     if (!isLoading && !isAdminRole(user?.role)) {
@@ -571,6 +590,28 @@ export default function AdminDashboardPage() {
       return;
     }
 
+    const selectedLevel = parseStudentLevel(studentAccountForm.level);
+
+    if (!selectedLevel) {
+      setActionError('Select a valid level between 100 and 500.');
+      return;
+    }
+
+    if (!isValidDepartmentForFaculty(studentAccountForm.faculty, studentAccountForm.department)) {
+      setActionError('Select a department that matches the chosen faculty.');
+      return;
+    }
+
+    if (!hostels.some((hostel) => hostel.name === studentAccountForm.hostel)) {
+      setActionError('Select a hostel created by the super admin.');
+      return;
+    }
+
+    if (!isValidRoom(studentAccountForm.room)) {
+      setActionError('Room number must be a letter A to L followed by a number from 1 to 25.');
+      return;
+    }
+
     await withActionFeedback(async () => {
       await apiService.createStudentAccessAccount({
         ...studentAccountForm,
@@ -578,10 +619,10 @@ export default function AdminDashboardPage() {
         email: studentAccountForm.email.trim(),
         matric: studentAccountForm.matric.trim(),
         department: studentAccountForm.department.trim(),
-        faculty: studentAccountForm.faculty.trim(),
-        level: studentAccountForm.level.trim(),
+        faculty: normalizeFaculty(studentAccountForm.faculty),
+        level: selectedLevel,
         hostel: studentAccountForm.hostel.trim(),
-        room: studentAccountForm.room.trim(),
+        room: normalizeRoom(studentAccountForm.room),
         phone: studentAccountForm.phone.trim(),
         guardianPhone: studentAccountForm.guardianPhone.trim(),
         password: studentAccountForm.password,
@@ -892,34 +933,66 @@ export default function AdminDashboardPage() {
                       />
                     </Field>
                     <Field label="Level">
-                      <Input
+                      <select
                         value={studentAccountForm.level}
                         onChange={(event) =>
                           setStudentAccountForm((current) => ({ ...current, level: event.target.value }))
                         }
-                        placeholder="100"
-                        className="border-slate-200 bg-white/85"
-                      />
+                        className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950"
+                      >
+                        <option value="">Select level</option>
+                        {LEVEL_OPTIONS.map((level) => (
+                          <option key={level} value={String(level)}>
+                            {level}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                     <Field label="Faculty">
-                      <Input
+                      <select
                         value={studentAccountForm.faculty}
                         onChange={(event) =>
-                          setStudentAccountForm((current) => ({ ...current, faculty: event.target.value }))
+                          setStudentAccountForm((current) => {
+                            const faculty = normalizeFaculty(event.target.value);
+                            const nextDepartments = getDepartmentsForFaculty(faculty);
+
+                            return {
+                              ...current,
+                              faculty,
+                              department: nextDepartments.includes(current.department)
+                                ? current.department
+                                : '',
+                            };
+                          })
                         }
-                        placeholder="Faculty"
-                        className="border-slate-200 bg-white/85"
-                      />
+                        className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950"
+                      >
+                        <option value="">Select faculty</option>
+                        {FACULTY_OPTIONS.map((faculty) => (
+                          <option key={faculty.value} value={faculty.value}>
+                            {faculty.label}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                     <Field label="Department">
-                      <Input
+                      <select
                         value={studentAccountForm.department}
                         onChange={(event) =>
                           setStudentAccountForm((current) => ({ ...current, department: event.target.value }))
                         }
-                        placeholder="Department"
-                        className="border-slate-200 bg-white/85"
-                      />
+                        className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={!studentDepartmentOptions.length}
+                      >
+                        <option value="">
+                          {studentDepartmentOptions.length ? 'Select department' : 'Select faculty first'}
+                        </option>
+                        {studentDepartmentOptions.map((department) => (
+                          <option key={department} value={department}>
+                            {department}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                     <Field label="Hostel">
                       <select
@@ -941,11 +1014,12 @@ export default function AdminDashboardPage() {
                       <Input
                         value={studentAccountForm.room}
                         onChange={(event) =>
-                          setStudentAccountForm((current) => ({ ...current, room: event.target.value }))
+                          setStudentAccountForm((current) => ({ ...current, room: normalizeRoom(event.target.value) }))
                         }
-                        placeholder="Room / bed space"
+                        placeholder="A21"
                         className="border-slate-200 bg-white/85"
                       />
+                      <p className="text-xs text-slate-500">{ROOM_FORMAT_HINT}</p>
                     </Field>
                     <Field label="Phone">
                       <Input
@@ -1116,7 +1190,7 @@ export default function AdminDashboardPage() {
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <InfoBlock label="Faculty" value={selectedStudent.faculty || 'Not set'} />
                   <InfoBlock label="Department" value={selectedStudent.department || 'Not set'} />
-                  <InfoBlock label="Level" value={selectedStudent.level || 'Not set'} />
+                  <InfoBlock label="Level" value={selectedStudent.level ? String(selectedStudent.level) : 'Not set'} />
                   <InfoBlock label="Hostel" value={selectedStudent.hostel || 'Not set'} />
                   <InfoBlock label="Room / Hostel No." value={selectedStudent.room || 'Not set'} />
                   <InfoBlock label="Phone" value={selectedStudent.phone || 'Not set'} />

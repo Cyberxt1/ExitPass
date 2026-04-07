@@ -18,6 +18,17 @@ import { Input } from "@/components/ui/input";
 import { apiService } from "@/lib/api-service";
 import { useAuth } from "@/lib/auth-context";
 import { getDefaultRouteForRole } from "@/lib/firebase/auth";
+import {
+  FACULTY_OPTIONS,
+  LEVEL_OPTIONS,
+  ROOM_FORMAT_HINT,
+  getDepartmentsForFaculty,
+  isValidDepartmentForFaculty,
+  isValidRoom,
+  normalizeFaculty,
+  normalizeRoom,
+  parseStudentLevel,
+} from "@/lib/student-profile";
 import type { Hostel, StudentAccessLookup } from "@/lib/types";
 
 type StudentStep =
@@ -59,6 +70,10 @@ function maskEmail(email: string) {
   return `${local.slice(0, 2)}${"*".repeat(Math.max(2, local.length - 2))}@${domain}`;
 }
 
+function isKnownHostel(hostels: Hostel[], hostelValue: string) {
+  return hostels.some((hostel) => hostel.name === hostelValue);
+}
+
 export function AccessCenter() {
   const navigate = useNavigate();
   const { login, resetPassword, signup, error: authError } = useAuth();
@@ -91,6 +106,11 @@ export function AccessCenter() {
       .then((items) => setHostels(items))
       .catch(() => setHostels([]));
   }, []);
+
+  const departmentOptions = useMemo(
+    () => getDepartmentsForFaculty(formData.faculty),
+    [formData.faculty],
+  );
 
   const currentOnboardingIndex = useMemo(
     () => onboardingSteps.findIndex((item) => item.id === step),
@@ -138,7 +158,27 @@ export function AccessCenter() {
   }, [step]);
 
   const handleChange = (field: keyof typeof formData, value: string) => {
-    setFormData((current) => ({ ...current, [field]: value }));
+    setFormData((current) => {
+      if (field === "faculty") {
+        const faculty = normalizeFaculty(value);
+        const nextDepartments = getDepartmentsForFaculty(faculty);
+
+        return {
+          ...current,
+          faculty,
+          department: nextDepartments.includes(current.department) ? current.department : "",
+        };
+      }
+
+      if (field === "room") {
+        return {
+          ...current,
+          room: normalizeRoom(value),
+        };
+      }
+
+      return { ...current, [field]: value };
+    });
   };
 
   const resetStudentFlow = () => {
@@ -191,10 +231,10 @@ export function AccessCenter() {
         matric: normalizedId,
         name: result.user?.name || current.name,
         department: result.user?.department || current.department,
-        faculty: result.user?.faculty || current.faculty,
-        level: result.user?.level || current.level,
+        faculty: result.user?.faculty ? normalizeFaculty(result.user.faculty) : current.faculty,
+        level: result.user?.level ? String(result.user.level) : current.level,
         hostel: result.user?.hostel || current.hostel,
-        room: result.user?.room || current.room,
+        room: result.user?.room ? normalizeRoom(result.user.room) : current.room,
         email: result.user?.email || current.email,
       }));
       setStep(result.exists ? "existing" : "profile");
@@ -261,8 +301,15 @@ export function AccessCenter() {
     }
 
     if (step === "academic") {
-      if (!formData.faculty.trim() || !formData.department.trim() || !formData.level.trim()) {
-        setError("Enter your faculty, department, and level.");
+      const selectedLevel = parseStudentLevel(formData.level);
+
+      if (!formData.faculty.trim() || !formData.department.trim() || !selectedLevel) {
+        setError("Select your faculty, department, and level.");
+        return;
+      }
+
+      if (!isValidDepartmentForFaculty(formData.faculty, formData.department)) {
+        setError("Select a department that matches the chosen faculty.");
         return;
       }
 
@@ -278,6 +325,16 @@ export function AccessCenter() {
 
       if (!formData.hostel.trim() || !formData.room.trim()) {
         setError("Select your hostel and enter your room number.");
+        return;
+      }
+
+      if (!isKnownHostel(hostels, formData.hostel)) {
+        setError("Select a hostel created by the super admin.");
+        return;
+      }
+
+      if (!isValidRoom(formData.room)) {
+        setError("Room number must be a letter A to L followed by a number from 1 to 25.");
         return;
       }
 
@@ -344,6 +401,28 @@ export function AccessCenter() {
       return;
     }
 
+    const selectedLevel = parseStudentLevel(formData.level);
+
+    if (!selectedLevel) {
+      setError("Select a valid level between 100 and 500.");
+      return;
+    }
+
+    if (!isValidDepartmentForFaculty(formData.faculty, formData.department)) {
+      setError("Select a department that matches the chosen faculty.");
+      return;
+    }
+
+    if (!isKnownHostel(hostels, formData.hostel)) {
+      setError("Select a hostel created by the super admin.");
+      return;
+    }
+
+    if (!isValidRoom(formData.room)) {
+      setError("Room number must be a letter A to L followed by a number from 1 to 25.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -352,10 +431,10 @@ export function AccessCenter() {
         email: formData.email.trim(),
         matric: formData.matric,
         department: formData.department.trim(),
-        faculty: formData.faculty.trim(),
-        level: formData.level.trim(),
+        faculty: normalizeFaculty(formData.faculty),
+        level: selectedLevel,
         hostel: formData.hostel.trim(),
-        room: formData.room.trim(),
+        room: normalizeRoom(formData.room),
         phone: formData.phone.trim(),
         guardianPhone: formData.guardianPhone.trim(),
         password: formData.password,
@@ -513,31 +592,51 @@ export function AccessCenter() {
             {step === "academic" ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Faculty">
-                  <Input
+                  <select
                     value={formData.faculty}
                     onChange={(event) => handleChange("faculty", event.target.value)}
-                    placeholder="Faculty"
-                    className="border-slate-200 bg-white/80"
+                    className="flex h-10 w-full rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={isLoading}
-                  />
+                  >
+                    <option value="">Select faculty</option>
+                    {FACULTY_OPTIONS.map((faculty) => (
+                      <option key={faculty.value} value={faculty.value}>
+                        {faculty.label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Department">
-                  <Input
+                  <select
                     value={formData.department}
                     onChange={(event) => handleChange("department", event.target.value)}
-                    placeholder="Department"
-                    className="border-slate-200 bg-white/80"
-                    disabled={isLoading}
-                  />
+                    className="flex h-10 w-full rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isLoading || !departmentOptions.length}
+                  >
+                    <option value="">
+                      {departmentOptions.length ? "Select department" : "Select faculty first"}
+                    </option>
+                    {departmentOptions.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Level">
-                  <Input
+                  <select
                     value={formData.level}
                     onChange={(event) => handleChange("level", event.target.value)}
-                    placeholder="Level"
-                    className="border-slate-200 bg-white/80"
+                    className="flex h-10 w-full rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={isLoading}
-                  />
+                  >
+                    <option value="">Select level</option>
+                    {LEVEL_OPTIONS.map((level) => (
+                      <option key={level} value={String(level)}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </div>
             ) : null}
@@ -568,10 +667,11 @@ export function AccessCenter() {
                   <Input
                     value={formData.room}
                     onChange={(event) => handleChange("room", event.target.value)}
-                    placeholder="Room number"
+                    placeholder="A21"
                     className="border-slate-200 bg-white/80"
                     disabled={isLoading}
                   />
+                  <p className="text-xs text-slate-500">{ROOM_FORMAT_HINT}</p>
                 </Field>
               </div>
             ) : null}

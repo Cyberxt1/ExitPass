@@ -30,10 +30,15 @@ import {
 
 import { getFirebaseAuth, getFirebaseDb } from "./firebase/client";
 import {
+  firebaseUseAuthEmulator,
   getFirebaseConfigurationError,
   isFirebaseConfigured,
 } from "./firebase/config";
 import { mapUser } from "./firebase/firestore";
+import {
+  normalizeStudentProfileDetails,
+  parseStudentLevel,
+} from "./student-profile";
 import { staffPortals } from "./staff-portals";
 import type { StudentSignupInput, User } from "./types";
 
@@ -74,6 +79,10 @@ function getStudentAccessDirectoryId(value: string) {
 }
 
 function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function normalizeHostelSelection(value: string) {
   return value.trim().toLowerCase();
 }
 
@@ -189,7 +198,7 @@ function buildStudentAccessDirectoryPayload(profile: {
   matric: string;
   department?: string;
   faculty?: string;
-  level?: string;
+  level?: number;
   hostel?: string;
   room?: string;
 }) {
@@ -205,7 +214,7 @@ function buildStudentAccessDirectoryPayload(profile: {
     matricNormalized,
     department: profile.department || "",
     faculty: profile.faculty || "",
-    level: profile.level || "",
+    level: profile.level ?? null,
     hostel: profile.hostel || "",
     room: profile.room || "",
   };
@@ -240,7 +249,9 @@ function getReadableAuthError(error: unknown, fallback: string) {
     case "auth/configuration-not-found":
       return "Firebase Authentication is not configured correctly for this project.";
     case "auth/network-request-failed":
-      return "Network error. Check your connection and try again.";
+      return firebaseUseAuthEmulator
+        ? "Firebase Auth emulator is enabled locally, but the auth request failed. Start the Firebase emulators or disable the auth emulator in .env.local."
+        : "Network error. Check your connection and try again.";
     case "permission-denied":
     case "firestore/permission-denied":
       return "Profile setup was blocked by Firestore rules. Deploy the latest rules and try again.";
@@ -261,6 +272,12 @@ async function writeStudentProfile(profile: PendingStudentProfile) {
   const db = getFirebaseDb();
   const batch = writeBatch(db);
   const normalizedMatric = normalizeMatric(profile.matric);
+  const normalizedProfile = normalizeStudentProfileDetails({
+    faculty: profile.faculty,
+    department: profile.department,
+    level: profile.level,
+    room: profile.room,
+  });
 
   if (!isValidMatric(normalizedMatric)) {
     throw new Error("Student ID must be in the format 12/3456.");
@@ -272,11 +289,11 @@ async function writeStudentProfile(profile: PendingStudentProfile) {
     matric: normalizedMatric,
     matricNormalized: normalizedMatric,
     role: "student",
-    department: profile.department,
-    faculty: profile.faculty,
-    level: profile.level,
+    department: normalizedProfile.department,
+    faculty: normalizedProfile.faculty,
+    level: normalizedProfile.level,
     hostel: profile.hostel,
-    room: profile.room,
+    room: normalizedProfile.room,
     phone: profile.phone,
     guardianPhone: profile.guardianPhone,
     permissions: [],
@@ -318,8 +335,9 @@ async function syncStudentAccessDirectoryForPrivilegedUser(profile: User) {
     for (const student of chunk) {
       const matric =
         typeof student.data.matric === "string" ? normalizeMatric(student.data.matric) : "";
+      const level = parseStudentLevel(student.data.level as string | number | null | undefined);
 
-      if (!matric) {
+      if (!matric || level === null) {
         continue;
       }
 
@@ -332,7 +350,7 @@ async function syncStudentAccessDirectoryForPrivilegedUser(profile: User) {
           department:
             typeof student.data.department === "string" ? student.data.department : "",
           faculty: typeof student.data.faculty === "string" ? student.data.faculty : "",
-          level: typeof student.data.level === "string" ? student.data.level : "",
+          level,
           hostel: typeof student.data.hostel === "string" ? student.data.hostel : "",
           room: typeof student.data.room === "string" ? student.data.room : "",
         }),
@@ -403,6 +421,36 @@ async function validateStudentSignupEmail(email: string) {
   if (hasPendingInvite) {
     throw new Error("That email already has a staff invite. Use the matching staff portal instead.");
   }
+}
+
+async function resolveStudentHostelName(hostelValue: string) {
+  const normalizedHostel = normalizeHostelSelection(hostelValue);
+
+  if (!normalizedHostel) {
+    throw new Error("Select your hostel to continue.");
+  }
+
+  const directSnapshot = await getDoc(doc(getFirebaseDb(), "hostels", hostelValue.trim()));
+
+  if (directSnapshot.exists()) {
+    const directName = directSnapshot.data().name;
+    return typeof directName === "string" && directName.trim() ? directName.trim() : hostelValue.trim();
+  }
+
+  const hostelsSnapshot = await getDocs(collection(getFirebaseDb(), "hostels"));
+  const match = hostelsSnapshot.docs.find((item) => {
+    const data = item.data();
+    const hostelName = typeof data.name === "string" ? normalizeHostelSelection(data.name) : "";
+
+    return hostelName === normalizedHostel || normalizeHostelSelection(item.id) === normalizedHostel;
+  });
+
+  if (!match) {
+    throw new Error("Select a hostel created by the super admin.");
+  }
+
+  const matchName = match.data().name;
+  return typeof matchName === "string" && matchName.trim() ? matchName.trim() : match.id;
 }
 
 async function loadPendingFallback(firebaseUser: FirebaseUser): Promise<User | null> {
@@ -607,19 +655,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(true);
         setError(null);
 
-      try {
-        const normalizedEmail = input.email.trim().toLowerCase();
-        const normalizedMatric = normalizeMatric(input.matric);
+        try {
+          const normalizedEmail = input.email.trim().toLowerCase();
+          const normalizedMatric = normalizeMatric(input.matric);
+          const normalizedProfile = normalizeStudentProfileDetails({
+            faculty: input.faculty,
+            department: input.department,
+            level: input.level,
+            room: input.room,
+          });
+          const hostelName = await resolveStudentHostelName(input.hostel);
 
-        if (!isValidMatric(normalizedMatric)) {
-          throw new Error("Student ID must be in the format 12/3456.");
-        }
+          if (!isValidMatric(normalizedMatric)) {
+            throw new Error("Student ID must be in the format 12/3456.");
+          }
 
-        await validateStudentSignupEmail(normalizedEmail);
+          await validateStudentSignupEmail(normalizedEmail);
 
-        const credentials = await createUserWithEmailAndPassword(
-          getFirebaseAuth(),
-          normalizedEmail,
+          const credentials = await createUserWithEmailAndPassword(
+            getFirebaseAuth(),
+            normalizedEmail,
             input.password,
           );
 
@@ -629,7 +684,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           const pendingProfile = buildPendingProfile(credentials.user.uid, {
             ...input,
+            department: normalizedProfile.department,
+            faculty: normalizedProfile.faculty,
+            hostel: hostelName,
+            level: normalizedProfile.level,
             matric: normalizedMatric,
+            room: normalizedProfile.room,
           });
           pendingProfile.email = normalizedEmail;
           writePendingProfile(pendingProfile);

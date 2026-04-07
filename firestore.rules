@@ -138,6 +138,75 @@
           && request.resource.data.disabled == false;
       }
 
+      function isValidStudentLevel(level) {
+        return level in [100, 200, 300, 400, 500];
+      }
+
+      function isValidRoomCode(room) {
+        return room is string
+          && room.matches('^[A-L]([1-9]|1[0-9]|2[0-5])$');
+      }
+
+      function isValidFacultyDepartment(faculty, department) {
+        return faculty == 'FOS' && department in [
+            'Biochemistry',
+            'Biology',
+            'Chemistry',
+            'Computer Science',
+            'Mathematics',
+            'Microbiology',
+            'Physics',
+            'Statistics'
+          ]
+          || faculty == 'FBMS' && department in [
+            'Anatomy',
+            'Medical Laboratory Science',
+            'Nursing Science',
+            'Physiology',
+            'Public Health'
+          ]
+          || faculty == 'FBSS' && department in [
+            'Accounting',
+            'Business Administration',
+            'Economics',
+            'International Relations',
+            'Mass Communication',
+            'Political Science',
+            'Sociology'
+          ]
+          || faculty == 'FOE' && department in [
+            'Chemical Engineering',
+            'Civil Engineering',
+            'Computer Engineering',
+            'Electrical and Electronics Engineering',
+            'Mechanical Engineering',
+            'Mechatronics Engineering'
+          ]
+          || faculty == 'FOA' && department in [
+            'English and Literary Studies',
+            'Fine Arts',
+            'History and International Studies',
+            'Music',
+            'Philosophy',
+            'Theatre Arts'
+          ]
+          || faculty == 'FOL' && department == 'Law';
+      }
+
+      function hasValidStudentProfileFields() {
+        return request.resource.data.department is string
+          && request.resource.data.faculty is string
+          && request.resource.data.level is int
+          && request.resource.data.hostel is string
+          && request.resource.data.room is string
+          && isValidStudentLevel(request.resource.data.level)
+          && isValidRoomCode(request.resource.data.room)
+          && isValidFacultyDepartment(
+            request.resource.data.faculty,
+            request.resource.data.department
+          );
+      }
+
       function canCreateStaffProfile(userId) {
         return isOwner(userId)
           && request.resource.data.role in ['hall_admin', 'chaplaincy', 'security', 'super_admin']
@@ -158,6 +227,7 @@
           && request.resource.data.name is string
           && request.resource.data.matric is string
           && request.resource.data.matric.matches('^[0-9]{2}/[0-9]{4}$')
+          && hasValidStudentProfileFields()
           && !isLeadStaffEmail();
       }
 
@@ -170,6 +240,7 @@
           && request.resource.data.matric is string
           && request.resource.data.matric.matches('^[0-9]{2}/[0-9]{4}$')
           && request.resource.data.matricNormalized.matches('^[0-9]{2}/[0-9]{4}$')
+          && hasValidStudentProfileFields()
           && request.resource.data.disabled == false;
       }
 
@@ -196,7 +267,8 @@
           && request.resource.data.email is string
           && request.resource.data.department is string
           && request.resource.data.faculty is string
-          && request.resource.data.level is string
+          && request.resource.data.level is int
+          && isValidStudentLevel(request.resource.data.level)
           && request.resource.data.hostel is string
           && request.resource.data.room is string
           && (
@@ -313,6 +385,7 @@
             && resource.data.role == 'student'
             && request.resource.data.role == resource.data.role
             && request.resource.data.email == resource.data.email
+            && hasValidStudentProfileFields()
             && request.resource.data.permissions == resource.data.permissions
             && request.resource.data.disabled == resource.data.disabled
             && request.resource.data.approvalStatus == resource.data.approvalStatus

@@ -44,6 +44,10 @@ import {
   sortByCreatedAtDesc,
   toIsoString,
 } from "./firebase/firestore";
+import {
+  normalizeStudentProfileDetails,
+  parseStudentLevel,
+} from "./student-profile";
 import type {
   AnalyticsSummary,
   Announcement,
@@ -374,7 +378,7 @@ export const apiService = {
         matric: typeof data.matric === "string" ? data.matric : normalizedMatric,
         department: typeof data.department === "string" ? data.department : "",
         faculty: typeof data.faculty === "string" ? data.faculty : "",
-        level: typeof data.level === "string" ? data.level : "",
+        level: parseStudentLevel(data.level as string | number | null | undefined) ?? undefined,
         hostel: typeof data.hostel === "string" ? data.hostel : "",
         room: typeof data.room === "string" ? data.room : "",
       },
@@ -385,9 +389,20 @@ export const apiService = {
     const actor = await getCurrentSignedInProfile();
     const normalizedMatric = normalizeMatric(input.matric);
     const normalizedEmail = normalizeEmail(input.email);
+    const normalizedProfile = normalizeStudentProfileDetails({
+      faculty: input.faculty,
+      department: input.department,
+      level: input.level,
+      room: input.room,
+    });
+    const resolvedHostel = await resolveHostelByValue(input.hostel);
 
     if (!isValidMatric(normalizedMatric)) {
       throw new Error("Student ID must be in the format 12/3456.");
+    }
+
+    if (!resolvedHostel) {
+      throw new Error("Select a hostel created by the super admin.");
     }
 
     if (actor.role !== "super_admin") {
@@ -415,11 +430,11 @@ export const apiService = {
       matric: normalizedMatric,
       matricNormalized: normalizedMatric,
       role: "student",
-      department: input.department.trim(),
-      faculty: input.faculty.trim(),
-      level: input.level.trim(),
-      hostel: input.hostel.trim(),
-      room: input.room.trim(),
+      department: normalizedProfile.department,
+      faculty: normalizedProfile.faculty,
+      level: normalizedProfile.level,
+      hostel: resolvedHostel.name,
+      room: normalizedProfile.room,
       phone: input.phone.trim(),
       guardianPhone: input.guardianPhone.trim(),
       permissions: [],
@@ -436,11 +451,11 @@ export const apiService = {
       email: normalizedEmail,
       matric: normalizedMatric,
       matricNormalized: normalizedMatric,
-      department: input.department.trim(),
-      faculty: input.faculty.trim(),
-      level: input.level.trim(),
-      hostel: input.hostel.trim(),
-      room: input.room.trim(),
+      department: normalizedProfile.department,
+      faculty: normalizedProfile.faculty,
+      level: normalizedProfile.level,
+      hostel: resolvedHostel.name,
+      room: normalizedProfile.room,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -1616,8 +1631,9 @@ export const apiService = {
 
       for (const student of chunk) {
         const normalizedMatric = normalizeMatric(student.matric);
+        const level = parseStudentLevel(student.level as string | number | null | undefined);
 
-        if (!normalizedMatric) {
+        if (!normalizedMatric || level === null) {
           continue;
         }
 
@@ -1631,7 +1647,7 @@ export const apiService = {
           matricNormalized: normalizedMatric,
           department: student.department || "",
           faculty: student.faculty || "",
-          level: student.level || "",
+          level,
           hostel: student.hostel || "",
           room: student.room || "",
           createdAt: student.createdAt || serverTimestamp(),

@@ -32,7 +32,7 @@ export interface User {
   room?: string;
   department?: string;
   faculty?: string;
-  level?: string;
+  level?: number;
   phone?: string;
   guardianPhone?: string;
   photo?: string;
@@ -240,7 +240,7 @@ export interface StudentSignupInput {
   matric: string;
   department: string;
   faculty: string;
-  level: string;
+  level: number;
   hostel: string;
   room: string;
   phone: string;

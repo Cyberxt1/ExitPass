@@ -15,6 +15,7 @@ import type {
   User,
   UserRole,
 } from "@/lib/types";
+import { parseStudentLevel } from "@/lib/student-profile";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -53,6 +54,7 @@ function mapEmbeddedUser(studentId: string, value?: unknown) {
   }
 
   const data = value as UnknownRecord;
+  const level = parseStudentLevel(data.level as string | number | null | undefined);
 
   return {
     id: typeof data.id === "string" ? data.id : studentId,
@@ -64,7 +66,7 @@ function mapEmbeddedUser(studentId: string, value?: unknown) {
     room: typeof data.room === "string" ? data.room : undefined,
     department: typeof data.department === "string" ? data.department : undefined,
     faculty: typeof data.faculty === "string" ? data.faculty : undefined,
-    level: typeof data.level === "string" ? data.level : undefined,
+    level: level ?? undefined,
     phone: typeof data.phone === "string" ? data.phone : undefined,
     guardianPhone: typeof data.guardianPhone === "string" ? data.guardianPhone : undefined,
     photo: typeof data.photo === "string" ? data.photo : undefined,
@@ -93,6 +95,8 @@ function mapApprovalRecord(value?: unknown, fallbackRole: UserRole = "hall_admin
 }
 
 export function mapUser(id: string, value: UnknownRecord): User {
+  const level = parseStudentLevel(value.level as string | number | null | undefined);
+
   return {
     id,
     name: typeof value.name === "string" ? value.name : "Unnamed User",
@@ -103,7 +107,7 @@ export function mapUser(id: string, value: UnknownRecord): User {
     room: typeof value.room === "string" ? value.room : undefined,
     department: typeof value.department === "string" ? value.department : undefined,
     faculty: typeof value.faculty === "string" ? value.faculty : undefined,
-    level: typeof value.level === "string" ? value.level : undefined,
+    level: level ?? undefined,
     phone: typeof value.phone === "string" ? value.phone : undefined,
     guardianPhone: typeof value.guardianPhone === "string" ? value.guardianPhone : undefined,
     photo: typeof value.photo === "string" ? value.photo : undefined,
