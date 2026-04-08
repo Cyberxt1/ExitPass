@@ -295,6 +295,50 @@ function normalizeOptionalText(value?: string | null) {
   return value?.trim() || "";
 }
 
+function buildStudentAccessDirectoryPayload(profile: {
+  uid: string;
+  name: string;
+  email: string;
+  matric: string;
+  department?: string;
+  faculty?: string;
+  level?: number;
+  hostel?: string;
+  room?: string;
+}) {
+  const matricNormalized = normalizeMatric(profile.matric);
+
+  return {
+    directoryId: getStudentAccessDirectoryId(matricNormalized),
+    userId: profile.uid,
+    role: "student" as const,
+    name: profile.name,
+    email: normalizeEmail(profile.email),
+    matric: matricNormalized,
+    matricNormalized,
+    department: normalizeOptionalText(profile.department),
+    faculty: normalizeOptionalText(profile.faculty),
+    level: profile.level ?? null,
+    hostel: normalizeOptionalText(profile.hostel),
+    room: normalizeOptionalText(profile.room),
+  };
+}
+
+function hasCompleteStudentDirectoryProfile(profile: User) {
+  return (
+    isValidMatric(profile.matric) &&
+    typeof profile.department === "string" &&
+    profile.department.trim().length > 0 &&
+    typeof profile.faculty === "string" &&
+    profile.faculty.trim().length > 0 &&
+    typeof profile.level === "number" &&
+    typeof profile.hostel === "string" &&
+    profile.hostel.trim().length > 0 &&
+    typeof profile.room === "string" &&
+    profile.room.trim().length > 0
+  );
+}
+
 async function createNotificationRecord(input: {
   userId: string;
   title: string;
@@ -496,23 +540,50 @@ export const apiService = {
     const nextNameChangeCount = currentNameChangeCount + 1;
     const db = getFirebaseDb();
     const userRef = doc(db, "users", userId);
+    const batch = writeBatch(db);
 
-    await updateDoc(userRef, {
+    batch.update(userRef, {
       name,
       nameChangeCount: nextNameChangeCount,
       updatedAt: serverTimestamp(),
     });
 
-    await setDoc(
-      doc(db, "studentAccessDirectory", getStudentAccessDirectoryId(actor.matric)),
-      {
-        userId,
-        directoryId: getStudentAccessDirectoryId(actor.matric),
-        name,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
+    if (isValidMatric(actor.matric)) {
+      const directoryId = getStudentAccessDirectoryId(actor.matric);
+      const directoryRef = doc(db, "studentAccessDirectory", directoryId);
+      const directorySnapshot = await getDoc(directoryRef);
+
+      if (directorySnapshot.exists()) {
+        batch.set(
+          directoryRef,
+          {
+            userId,
+            directoryId,
+            name,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } else if (hasCompleteStudentDirectoryProfile(actor)) {
+        batch.set(directoryRef, {
+          ...buildStudentAccessDirectoryPayload({
+            uid: userId,
+            name,
+            email: actor.email,
+            matric: actor.matric,
+            department: actor.department,
+            faculty: actor.faculty,
+            level: actor.level,
+            hostel: actor.hostel,
+            room: actor.room,
+          }),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+
+    await batch.commit();
 
     const currentAuthUser = getFirebaseAuth().currentUser;
 
@@ -1236,6 +1307,15 @@ export const apiService = {
 
     const normalizedEmail = normalizeEmail(adminData.email);
     const name = adminData.name.trim();
+    const assignedHostel =
+      adminData.role === "hall_admin" && adminData.hostel?.trim()
+        ? await resolveHostelByValue(adminData.hostel)
+        : null;
+
+    if (adminData.role === "hall_admin" && adminData.hostel?.trim() && !assignedHostel) {
+      throw new Error("Selected hostel was not found.");
+    }
+
     const temporaryPassword = generateTemporaryPassword();
     const uid = await createAuthUserWithoutSwitchingSession(name, normalizedEmail, temporaryPassword);
 
@@ -1245,7 +1325,7 @@ export const apiService = {
       email: normalizedEmail,
       matric: `${adminData.role.toUpperCase().replace(/_/g, "-")}-${Date.now().toString().slice(-6)}`,
       role: adminData.role,
-      hostel: adminData.hostel?.trim() || "",
+      hostel: assignedHostel?.name || adminData.hostel?.trim() || "",
       permissions: adminData.permissions?.length ? adminData.permissions : getDefaultPermissionsForRole(adminData.role),
       disabled: false,
       approvalStatus: "approved",
@@ -1255,21 +1335,11 @@ export const apiService = {
       updatedAt: serverTimestamp(),
     });
 
-    if (adminData.role === "hall_admin" && adminData.hostel?.trim()) {
-      const assignedHostel = await resolveHostelByValue(adminData.hostel);
-
-      if (assignedHostel) {
-        await Promise.all([
-          updateDoc(userRef, {
-            hostel: assignedHostel.slug,
-            updatedAt: serverTimestamp(),
-          }),
-          updateDoc(doc(getFirebaseDb(), "hostels", assignedHostel.slug), {
-            hallAdminEmail: normalizedEmail,
-            updatedAt: serverTimestamp(),
-          }),
-        ]);
-      }
+    if (assignedHostel) {
+      await updateDoc(doc(getFirebaseDb(), "hostels", assignedHostel.slug), {
+        hallAdminEmail: normalizedEmail,
+        updatedAt: serverTimestamp(),
+      });
     }
 
     const snapshot = await getDoc(userRef);

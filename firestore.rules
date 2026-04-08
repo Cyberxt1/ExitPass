@@ -230,6 +230,18 @@
           );
       }
 
+      function canSelfRenameStudentProfile(userId) {
+        return isOwner(userId)
+          && resource.data.role == 'student'
+          && request.resource.data.role == resource.data.role
+          && isValidStudentNameUpdate()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name',
+            'nameChangeCount',
+            'updatedAt'
+          ]);
+      }
+
       function canCreateStaffProfile(userId) {
         return isOwner(userId)
           && request.resource.data.role in ['hall_admin', 'chaplaincy', 'security', 'super_admin']
@@ -304,18 +316,8 @@
         return isSignedIn()
           && resource != null
           && resource.data.userId == request.auth.uid
-          && request.resource.data.userId == resource.data.userId
           && request.resource.data.directoryId == directoryId
           && request.resource.data.directoryId == resource.data.directoryId
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.email == resource.data.email
-          && request.resource.data.matric == resource.data.matric
-          && request.resource.data.matricNormalized == resource.data.matricNormalized
-          && request.resource.data.department == resource.data.department
-          && request.resource.data.faculty == resource.data.faculty
-          && request.resource.data.level == resource.data.level
-          && request.resource.data.hostel == resource.data.hostel
-          && request.resource.data.room == resource.data.room
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -421,40 +423,36 @@
           ]);
       }
 
+      function canSuperAdminManageUser() {
+        return isSignedIn()
+          && isSuperAdmin()
+          && resource.data.role in ['student', 'hall_admin', 'chaplaincy', 'security']
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.matric == resource.data.matric
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name',
+            'hostel',
+            'photo',
+            'permissions',
+            'disabled',
+            'updatedAt',
+            'approvalStatus',
+            'approvalReviewedBy',
+            'approvalReviewedAt',
+            'rejectionReason'
+          ]);
+      }
+
       match /users/{userId} {
         allow read: if isOwner(userId) || isPrivileged();
         allow create: if canCreateStudentProfile(userId)
           || canCreateStaffProfile(userId)
           || canCreateManagedStudentProfile()
           || canCreateManagedStaffProfile();
-        allow update: if (
-            isOwner(userId)
-            && resource.data.role == 'student'
-            && request.resource.data.role == resource.data.role
-            && isValidStudentNameUpdate()
-            && request.resource.data.email == resource.data.email
-            && hasValidStudentProfileFields()
-            && request.resource.data.permissions == resource.data.permissions
-            && request.resource.data.disabled == resource.data.disabled
-            && request.resource.data.approvalStatus == resource.data.approvalStatus
-            && request.resource.data.approvalReviewedBy == resource.data.approvalReviewedBy
-            && request.resource.data.approvalReviewedAt == resource.data.approvalReviewedAt
-            && request.resource.data.rejectionReason == resource.data.rejectionReason
-          ) || (
-            isSignedIn()
-            && isSuperAdmin()
-            && resource.data.role in ['student', 'hall_admin', 'chaplaincy', 'security']
-            && request.resource.data.role == resource.data.role
-            && request.resource.data.email == resource.data.email
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'disabled',
-              'updatedAt',
-              'approvalStatus',
-              'approvalReviewedBy',
-              'approvalReviewedAt',
-              'rejectionReason'
-            ])
-          ) || canSelfAssignHallAdminHostel(userId);
+        allow update: if canSelfRenameStudentProfile(userId)
+          || canSuperAdminManageUser()
+          || canSelfAssignHallAdminHostel(userId);
         allow delete: if false;
       }
 
@@ -473,7 +471,7 @@
       }
 
       match /passRequests/{requestId} {
-        allow read: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
+        allow read: if isSignedIn() && (resource.data.studentId == request.auth.uid || isPrivileged());
         allow create: if canCreateStudentPassRequest();
         allow update: if canReviewAtChaplaincyStage() || canReviewAtHallStage();
         allow delete: if false;
