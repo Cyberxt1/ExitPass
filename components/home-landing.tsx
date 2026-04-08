@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 
 import { Link } from "@/components/app-link";
-import { PassPreviewPhone } from "@/components/pass-preview-phone";
 import { Button } from "@/components/ui/button";
 import { getDefaultRouteForRole } from "@/lib/firebase/auth";
 import type { User } from "@/lib/types";
@@ -90,7 +89,7 @@ export function HomeLanding({ user }: { user: User | null }) {
         className="fixed inset-0 z-0"
         style={{
           backgroundImage:
-            "linear-gradient(180deg, rgba(4,12,26,0.65) 0%, rgba(4,12,26,0.45) 35%, rgba(4,12,26,0.86) 100%), url('https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600&q=85&fit=crop')",
+            "linear-gradient(180deg, rgba(4,12,26,0.65) 0%, rgba(4,12,26,0.45) 35%, rgba(4,12,26,0.86) 100%), url('/background.png')",
           backgroundPosition: "center",
           backgroundSize: "cover",
         }}
@@ -162,22 +161,14 @@ export function HomeLanding({ user }: { user: User | null }) {
                   </p>
                 </div>
 
-                <PassPreviewPhone
-                  eyebrow="ExitPass"
-                  title="Request Summary"
-                  summary="Hall exit approved for Friday movement to town."
-                  screenshotSrc="/der.png"
-                  screenshotAlt="ExitPass app screenshot"
-                  rows={[
-                    { label: "Destination", value: "Town" },
-                    { label: "Departure", value: "Fri · 4:00 PM" },
-                    { label: "Status", value: "Ready to scan", accent: true },
-                  ]}
-                  stages={[
-                    { title: "Chaplaincy", text: "Approved with remarks preserved." },
-                    { title: "Hall Admin", text: "Final hostel approval complete." },
-                  ]}
-                />
+                <div className="relative mx-auto flex justify-center">
+                  <div className="absolute inset-x-10 top-8 h-20 rounded-full bg-[#90cbf8]/25 blur-3xl" />
+                  <img
+                    src="/der.png"
+                    alt="ExitPass app screenshot"
+                    className="relative z-10 h-auto w-[min(82vw,350px)] drop-shadow-[0_35px_80px_rgba(0,0,0,0.55)] sm:w-[320px] lg:w-[360px]"
+                  />
+                </div>
 
                 <div className="hidden items-start md:flex md:flex-col">
                   <p className="text-[clamp(2.6rem,7vw,5rem)] font-thin uppercase tracking-[0.3em] text-white">
