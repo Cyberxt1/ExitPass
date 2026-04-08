@@ -223,11 +223,11 @@ export default function DashboardPage() {
                       </div>
                       <div className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                          QR status
+                          Pass ID status
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-900">
                           {activePasses[0].qrCode
-                            ? 'Ready to scan.'
+                            ? 'Ready for gate verification.'
                             : 'Available after approval.'}
                         </p>
                       </div>

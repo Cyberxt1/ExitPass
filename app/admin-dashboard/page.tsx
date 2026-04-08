@@ -28,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { apiService } from '@/lib/api-service';
 import { useAuth } from '@/lib/auth-context';
-import { isAdminRole } from '@/lib/firebase/auth';
+import { getDefaultRouteForRole, isAdminRole } from '@/lib/firebase/auth';
 import { formatDateTime, getRoleLabel } from '@/lib/platform';
 import {
   FACULTY_OPTIONS,
@@ -263,7 +263,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!isLoading && !isAdminRole(user?.role)) {
-      navigate('/dashboard');
+      navigate(getDefaultRouteForRole(user?.role));
     }
   }, [isLoading, navigate, user?.role]);
 

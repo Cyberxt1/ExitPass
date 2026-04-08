@@ -3,7 +3,6 @@ import { UserRole } from "@/lib/types";
 export const ADMIN_ROLES: UserRole[] = [
   "hall_admin",
   "chaplaincy",
-  "security",
   "super_admin",
 ];
 

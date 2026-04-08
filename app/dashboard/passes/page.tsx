@@ -60,6 +60,10 @@ function getApprovalCopy(label: string, approval?: Pass['chaplainApproval']) {
 }
 
 function getPassDisplayId(pass: Pass) {
+  if (pass.qrCode) {
+    return pass.qrCode;
+  }
+
   const baseId = (pass.requestId || pass.id || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
   if (!baseId) {
@@ -140,7 +144,7 @@ export default function PassesPage() {
     [passes],
   );
 
-  const copyQrCode = async () => {
+  const copyPassId = async () => {
     if (!selectedPass?.qrCode) {
       return;
     }
@@ -355,7 +359,7 @@ export default function PassesPage() {
                         {getPassDisplayId(selectedPass)}
                       </p>
                       <p className="mt-3 text-xs leading-5 text-slate-500">
-                        Use this same pass to leave and return until security marks it returned.
+                        Use this same pass ID to leave and return until security marks it returned.
                       </p>
                     </div>
 
@@ -382,10 +386,10 @@ export default function PassesPage() {
 
                   <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      QR Token
+                      Gate Pass ID
                     </p>
                     <p className="mt-2 break-all font-mono text-sm leading-6 text-slate-700">
-                      {selectedPass.qrCode || 'QR code appears after approval'}
+                      {selectedPass.qrCode || 'Pass ID appears after approval'}
                     </p>
                   </div>
 
@@ -400,12 +404,12 @@ export default function PassesPage() {
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => void copyQrCode()}
+                      onClick={() => void copyPassId()}
                       disabled={!selectedPass.qrCode}
                       className="h-11 rounded-full border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
                     >
                       <Copy className="mr-2 h-4 w-4" />
-                      {copied ? 'Copied' : 'Copy QR'}
+                      {copied ? 'Copied' : 'Copy pass ID'}
                     </Button>
                   </div>
 

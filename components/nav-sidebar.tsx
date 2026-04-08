@@ -53,10 +53,10 @@ const navItems: NavItem[] = [
     label: 'Operations',
     href: '/admin-dashboard',
     icon: <ShieldCheck className="w-5 h-5" />,
-    roles: ['hall_admin', 'chaplaincy', 'security', 'super_admin'],
+    roles: ['hall_admin', 'chaplaincy', 'super_admin'],
   },
   {
-    label: 'Scanner',
+    label: 'Security Desk',
     href: '/security-scanner',
     icon: <QrCode className="w-5 h-5" />,
     roles: ['security'],

@@ -168,11 +168,27 @@ function generateTemporaryPassword() {
   return `ExitPass!${Math.random().toString(16).slice(2, 10)}`;
 }
 
-function generatePassQrCode(requestId: string) {
-  const compactRequestId = requestId.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-  const readableRequestId = compactRequestId.slice(0, 8) || "PASS";
-  const nonce = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `EP-${readableRequestId}-${nonce}`;
+function normalizePassCode(value: string) {
+  return value.trim().replace(/\s+/g, "");
+}
+
+function isSevenDigitPassCode(value: string) {
+  return /^\d{7}$/.test(normalizePassCode(value));
+}
+
+async function generateUniquePassCode() {
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const candidate = String(Math.floor(1000000 + Math.random() * 9000000));
+    const existingPassSnapshot = await getDocs(
+      query(collection(getFirebaseDb(), "passes"), where("qrCode", "==", candidate), limit(1)),
+    );
+
+    if (existingPassSnapshot.empty) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Unable to generate a unique pass ID right now.");
 }
 
 async function hostelsMatchForAccess(leftHostel?: string | null, rightHostel?: string | null) {
@@ -755,6 +771,7 @@ export const apiService = {
         },
         updatedAt: serverTimestamp(),
       });
+      const passCode = await generateUniquePassCode();
       batch.set(doc(getFirebaseDb(), "passes", requestId), {
         requestId,
         studentId: requestRecord.studentId,
@@ -766,7 +783,7 @@ export const apiService = {
         expectedReturnDate: Timestamp.fromDate(new Date(requestRecord.expectedReturnDate)),
         status: "approved",
         currentStage: "completed",
-        qrCode: generatePassQrCode(requestId),
+        qrCode: passCode,
         hallAdminApproval: {
           approvedBy: actor.id,
           approverName: actor.name,
@@ -1465,7 +1482,7 @@ export const apiService = {
   async sendAnnouncement(title: string, message: string, recipientRole?: User["role"]) {
     const actor = await getCurrentSignedInProfile();
 
-    if (!["hall_admin", "chaplaincy", "super_admin"].includes(actor.role)) {
+    if (!["hall_admin", "chaplaincy", "security", "super_admin"].includes(actor.role)) {
       throw new Error("You do not have permission to send announcements.");
     }
 
@@ -1577,17 +1594,19 @@ export const apiService = {
     } satisfies AnalyticsSummary;
   },
 
-  async verifyQRCode(qrCode: string) {
-    const normalizedQrCode = qrCode.trim();
+  async verifyPassCode(passCode: string) {
+    const normalizedPassCode = normalizePassCode(passCode);
     const snapshot = await getDocs(
-      query(collection(getFirebaseDb(), "passes"), where("qrCode", "==", normalizedQrCode), limit(1)),
+      query(collection(getFirebaseDb(), "passes"), where("qrCode", "==", normalizedPassCode), limit(1)),
     );
 
     if (snapshot.empty) {
       return {
         pass: null,
         isValid: false,
-        message: "QR code not found or invalid.",
+        message: isSevenDigitPassCode(normalizedPassCode)
+          ? "Pass ID not found or invalid."
+          : "Pass record not found.",
       };
     }
 
@@ -1635,14 +1654,19 @@ export const apiService = {
     });
   },
 
+  async verifyQRCode(qrCode: string) {
+    return this.verifyPassCode(qrCode);
+  },
+
   async scanEntry(qrCode: string, location = "Main Gate") {
     return this.logScan(qrCode, location);
   },
 
-  async logScan(qrCode: string, location: string, eventType: "scan" | "return" = "scan") {
-    const verification = await this.verifyQRCode(qrCode);
+  async logPassVerification(passCode: string, location: string, eventType: "scan" | "return" = "scan") {
+    const normalizedPassCode = normalizePassCode(passCode);
+    const verification = await this.verifyPassCode(normalizedPassCode);
     const scanRef = await addDoc(collection(getFirebaseDb(), "scans"), {
-      qrCode: qrCode.trim(),
+      qrCode: normalizedPassCode,
       passId: verification.pass?.id || "",
       studentId: verification.pass?.studentId || "",
       location: location.trim() || "Main Gate",
@@ -1653,6 +1677,10 @@ export const apiService = {
 
     const snapshot = await getDoc(scanRef);
     return mapScanLog(snapshot.id, snapshot.data() || {});
+  },
+
+  async logScan(qrCode: string, location: string, eventType: "scan" | "return" = "scan") {
+    return this.logPassVerification(qrCode, location, eventType);
   },
 
   async getScanHistory(resultLimit = 50) {
