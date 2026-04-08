@@ -322,152 +322,108 @@ export default function PassesPage() {
         )}
 
         <Dialog open={Boolean(selectedPass)} onOpenChange={(open) => !open && setSelectedPass(null)}>
-          <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto rounded-[1.75rem] border-slate-200 p-0">
+          <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto rounded-[1.5rem] border-slate-200 p-0">
             {selectedPass ? (
-              <div className="space-y-6 p-6">
-                <DialogHeader className="pr-10">
-                  <DialogTitle className="text-2xl text-slate-950">{selectedPass.destination}</DialogTitle>
-                  <DialogDescription className="text-sm leading-6 text-slate-600">
-                    {getPassTypeLabel(selectedPass.type)} pass • {getPassStatusMeta(selectedPass).label}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-                  <SectionCard
-                    title={getPassTypeLabel(selectedPass.type)}
-                    description="Ready to view, print, or share."
-                  >
-                    <div className="space-y-5">
-                      <div className="brand-panel-soft rounded-[2rem] border p-6">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                              ExitPass certificate
-                            </p>
-                            <h2 className="mt-3 text-3xl font-semibold text-slate-950">
-                              {selectedPass.destination}
-                            </h2>
-                          </div>
-                          <StatusBadge
-                            label={getPassStatusMeta(selectedPass).label}
-                            tone={`${getPassStatusMeta(selectedPass).surface} ${getPassStatusMeta(selectedPass).tone}`}
-                          />
-                        </div>
-
-                        <div className="mt-8 flex justify-center">
-                          <div className="rounded-[1.75rem] border border-white/90 bg-white p-6 shadow-[0_26px_70px_-45px_rgba(15,23,42,0.55)]">
-                            <div className="flex h-56 w-56 flex-col items-center justify-center rounded-[1.25rem] border border-dashed border-slate-200 bg-slate-50">
-                              <QrCode className="h-28 w-28 text-slate-900" />
-                              <p className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                                Pass ID
-                              </p>
-                              <p className="mt-2 max-w-[12rem] text-center text-sm font-semibold tracking-[0.18em] text-slate-900">
-                                {getPassDisplayId(selectedPass)}
-                              </p>
-                              <p className="mt-2 max-w-[12rem] text-center text-[11px] leading-5 text-slate-500">
-                                Use this same pass to leave and to return until security marks it returned.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="rounded-[1.25rem] border border-white/70 bg-white/80 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                            QR token
-                          </p>
-                          <p className="mt-2 break-all font-mono text-sm leading-6 text-slate-700">
-                            {selectedPass.qrCode || 'QR code appears after approval'}
-                          </p>
-                        </div>
-
-                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                          <DetailBlock label="Reason" value={selectedPass.reason} />
-                          <DetailBlock label="Issued" value={formatDateTime(selectedPass.createdAt)} />
-                          <DetailBlock label="Pass ID" value={getPassDisplayId(selectedPass)} />
-                          <DetailBlock
-                            label="Gate use"
-                            value={
-                              selectedPass.actualReturnDate
-                                ? 'This pass has already been used for return.'
-                                : 'The same approved pass is used for exit and return.'
-                            }
-                          />
-                        </div>
+              <div className="bg-white">
+                <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
+                  <DialogHeader className="pr-10">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <DialogTitle className="text-2xl text-slate-950">{selectedPass.destination}</DialogTitle>
+                        <DialogDescription className="mt-2 text-sm leading-6 text-slate-600">
+                          {getPassTypeLabel(selectedPass.type)} pass
+                        </DialogDescription>
                       </div>
-
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        <Button
-                          onClick={downloadPass}
-                          disabled={!selectedPass.qrCode}
-                          className="h-12 flex-1 rounded-full bg-slate-950 text-white hover:bg-slate-800"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Print or save pass
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => void copyQrCode()}
-                          disabled={!selectedPass.qrCode}
-                          className="h-12 rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
-                        >
-                          <Copy className="mr-2 h-4 w-4" />
-                          {copied ? 'Copied' : 'Copy QR'}
-                        </Button>
-                      </div>
+                      <StatusBadge
+                        label={getPassStatusMeta(selectedPass).label}
+                        tone={`${getPassStatusMeta(selectedPass).surface} ${getPassStatusMeta(selectedPass).tone}`}
+                      />
                     </div>
-                  </SectionCard>
+                  </DialogHeader>
+                </div>
 
-                  <div className="space-y-6">
-                    <SectionCard title="Pass facts">
-                      <div className="grid gap-3">
-                        <DetailBlock label="Departure" value={formatDateTime(selectedPass.departureDate)} />
-                        <DetailBlock label="Return" value={formatDateTime(selectedPass.expectedReturnDate)} />
-                        <DetailBlock
-                          label="Actual return"
+                <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
+                  <div className="grid gap-5 md:grid-cols-[220px,1fr]">
+                    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-5 text-center">
+                      <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-[1rem] border border-dashed border-slate-200 bg-white">
+                        <QrCode className="h-16 w-16 text-slate-900" />
+                      </div>
+                      <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                        Pass ID
+                      </p>
+                      <p className="mt-2 break-words text-sm font-semibold tracking-[0.14em] text-slate-900">
+                        {getPassDisplayId(selectedPass)}
+                      </p>
+                      <p className="mt-3 text-xs leading-5 text-slate-500">
+                        Use this same pass to leave and return until security marks it returned.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <SimpleInfoCard label="Departure" value={formatDateTime(selectedPass.departureDate)} />
+                        <SimpleInfoCard label="Return" value={formatDateTime(selectedPass.expectedReturnDate)} />
+                        <SimpleInfoCard label="Issued" value={formatDateTime(selectedPass.createdAt)} />
+                        <SimpleInfoCard label="Duration" value={formatDurationDays(selectedPass.departureDate, selectedPass.expectedReturnDate)} />
+                        <SimpleInfoCard label="Stage" value={getPassStatusMeta(selectedPass).label} />
+                        <SimpleInfoCard
+                          label="Gate Use"
                           value={
                             selectedPass.actualReturnDate
-                              ? formatDateTime(selectedPass.actualReturnDate)
-                              : 'Not marked as returned yet'
+                              ? 'Already used for return.'
+                              : 'Use for exit and return.'
                           }
                         />
-                        <DetailBlock label="Duration" value={formatDurationDays(selectedPass.departureDate, selectedPass.expectedReturnDate)} />
-                        <DetailBlock label="Stage" value={getPassStatusMeta(selectedPass).label} />
-                        <DetailBlock
-                          label="Return remarks"
-                          value={selectedPass.returnRemarks || 'No return remarks recorded.'}
-                        />
                       </div>
-                    </SectionCard>
 
-                    <SectionCard
-                      title="Approval trail"
-                      description="Who approved the request."
+                      <SimpleInfoCard label="Reason" value={selectedPass.reason} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                      QR Token
+                    </p>
+                    <p className="mt-2 break-all font-mono text-sm leading-6 text-slate-700">
+                      {selectedPass.qrCode || 'QR code appears after approval'}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      onClick={downloadPass}
+                      disabled={!selectedPass.qrCode}
+                      className="h-11 flex-1 rounded-full bg-slate-950 text-white hover:bg-slate-800"
                     >
-                      <div className="space-y-3">
-                        <div className="rounded-[1.25rem] border border-white/70 bg-slate-50/90 p-4">
-                          <p className="font-semibold text-slate-950">Chaplaincy</p>
-                          <p className="mt-2 text-sm leading-6 text-slate-600">
-                            {getApprovalCopy('Chaplaincy', selectedPass.chaplainApproval)}
-                          </p>
-                        </div>
-                        <div className="rounded-[1.25rem] border border-white/70 bg-slate-50/90 p-4">
-                          <p className="font-semibold text-slate-950">Hall admin</p>
-                          <p className="mt-2 text-sm leading-6 text-slate-600">
-                            {getApprovalCopy('Hall admin', selectedPass.hallAdminApproval)}
-                          </p>
-                        </div>
-                        {selectedPass.actualReturnDate ? (
-                          <div className="rounded-[1.25rem] border border-white/70 bg-slate-50/90 p-4">
-                            <p className="font-semibold text-slate-950">Return status</p>
-                            <p className="mt-2 text-sm leading-6 text-slate-600">
-                              Marked returned on {formatDateTime(selectedPass.actualReturnDate)}
-                              {selectedPass.returnedByName ? ` by ${selectedPass.returnedByName}.` : '.'}
-                              {selectedPass.returnRemarks ? ` Remarks: ${selectedPass.returnRemarks}` : ''}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-                    </SectionCard>
+                      <Download className="mr-2 h-4 w-4" />
+                      Print or save pass
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => void copyQrCode()}
+                      disabled={!selectedPass.qrCode}
+                      className="h-11 rounded-full border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      {copied ? 'Copied' : 'Copy QR'}
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-3">
+                    <SimpleInfoCard label="Chaplaincy" value={getApprovalCopy('Chaplaincy', selectedPass.chaplainApproval)} />
+                    <SimpleInfoCard label="Hall Admin" value={getApprovalCopy('Hall admin', selectedPass.hallAdminApproval)} />
+                    <SimpleInfoCard
+                      label="Return Status"
+                      value={
+                        selectedPass.actualReturnDate
+                          ? `Marked returned on ${formatDateTime(selectedPass.actualReturnDate)}${selectedPass.returnedByName ? ` by ${selectedPass.returnedByName}` : ''}.${selectedPass.returnRemarks ? ` Remarks: ${selectedPass.returnRemarks}` : ''}`
+                          : 'Not marked as returned yet.'
+                      }
+                    />
+                    <SimpleInfoCard
+                      label="Return Remarks"
+                      value={selectedPass.returnRemarks || 'No return remarks recorded.'}
+                    />
                   </div>
                 </div>
               </div>
@@ -476,5 +432,14 @@ export default function PassesPage() {
         </Dialog>
       </div>
     </DashboardShell>
+  );
+}
+
+function SimpleInfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1rem] border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-900">{value}</p>
+    </div>
   );
 }
