@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +22,7 @@ import { DashboardShell } from '@/components/dashboard-shell';
 import { EmptyState, LoadingPanel, MetricCard, PageHero, StatusBadge } from '@/components/platform-ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -182,6 +183,7 @@ export default function AdminDashboardPage() {
   const [pendingStaffApprovals, setPendingStaffApprovals] = useState<User[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PassRequest[]>([]);
   const [students, setStudents] = useState<User[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<PassRequest | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<StudentDetails | null>(null);
   const [admins, setAdmins] = useState<User[]>([]);
   const [hostels, setHostels] = useState<Hostel[]>([]);
@@ -410,6 +412,9 @@ export default function AdminDashboardPage() {
     await withActionFeedback(async () => {
       await apiService.approvePassRequest(requestId, remarks);
       setReviewRemarks((current) => ({ ...current, [requestId]: '' }));
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest(null);
+      }
       await loadRequests();
     }, user?.role === 'chaplaincy' ? 'Request moved to hall admin.' : 'Request approved successfully.');
     setProcessingId(null);
@@ -427,6 +432,9 @@ export default function AdminDashboardPage() {
     await withActionFeedback(async () => {
       await apiService.rejectPassRequest(requestId, reason);
       setReviewRemarks((current) => ({ ...current, [requestId]: '' }));
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest(null);
+      }
       await loadRequests();
     }, 'Request denied and logged.');
     setProcessingId(null);
@@ -765,8 +773,8 @@ export default function AdminDashboardPage() {
                           <div>
                             <p className="text-base font-semibold text-slate-950">{account.name}</p>
                             <p className="text-sm text-slate-500">
-                              {account.email} • {getRoleLabel(account.role)}
-                              {account.hostel ? ` • ${account.hostel}` : ''}
+                              {account.email} â€¢ {getRoleLabel(account.role)}
+                              {account.hostel ? ` â€¢ ${account.hostel}` : ''}
                             </p>
                             <p className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-400">
                               Requested {formatDateTime(account.createdAt)}
@@ -1084,179 +1092,228 @@ export default function AdminDashboardPage() {
           ) : pendingRequests.length === 0 ? (
             <EmptyCard title="No requests waiting" />
           ) : (
-            <div className="space-y-4">
-              {pendingRequests.map((request) => (
-                <Card key={request.id} className="brand-panel border">
-                  <CardContent className="space-y-4 pt-6">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-semibold text-slate-950">{request.student?.name || 'Unknown student'}</p>
-                        <p className="text-sm text-slate-500">
-                          {request.student?.matric} {request.student?.hostel ? `• ${request.student.hostel}` : ''}
+            <>
+              <Card className="brand-panel border">
+                <CardHeader>
+                  <CardTitle className="text-lg text-slate-950">Waiting requests</CardTitle>
+                  <CardDescription className="text-slate-500">
+                    Open a request only when you need full details and actions.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {pendingRequests.map((request) => (
+                    <button
+                      key={request.id}
+                      type="button"
+                      onClick={() => setSelectedRequest(request)}
+                      className="flex w-full flex-col gap-3 rounded-[1.35rem] border border-blue-100/80 bg-white/80 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-slate-950">
+                          {request.student?.name || 'Unknown student'}
+                        </p>
+                        <p className="truncate text-sm text-slate-500">
+                          {request.student?.matric || 'No matric'}{request.student?.hostel ? ` • ${request.student.hostel}` : ''}
                         </p>
                       </div>
-                      <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
-                        {getStageLabel(request)}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                        <span>{request.destination}</span>
+                        <span>•</span>
+                        <span>{formatDateTime(request.departureDate)}</span>
+                        <StatusBadge
+                          label={getStageLabel(request)}
+                          tone="border-blue-200 bg-blue-50 text-blue-800"
+                        />
+                      </div>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Dialog open={Boolean(selectedRequest)} onOpenChange={(open) => !open && setSelectedRequest(null)}>
+                <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-[1.75rem] border-slate-200 p-0">
+                  {selectedRequest ? (
+                    <div className="space-y-6 p-6">
+                      <DialogHeader className="pr-10">
+                        <DialogTitle className="text-2xl text-slate-950">
+                          {selectedRequest.student?.name || 'Unknown student'}
+                        </DialogTitle>
+                        <DialogDescription className="text-sm leading-6 text-slate-600">
+                          Review this request and move it forward without crowding the queue view.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge
+                          label={getStageLabel(selectedRequest)}
+                          tone="border-blue-200 bg-blue-50 text-blue-800"
+                        />
+                        <StatusBadge
+                          label={selectedRequest.student?.hostel || 'No hostel'}
+                          tone="border-slate-200 bg-slate-100 text-slate-700"
+                        />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <InfoBlock label="Matric" value={selectedRequest.student?.matric || 'Not set'} />
+                        <InfoBlock label="Destination" value={selectedRequest.destination} />
+                        <InfoBlock label="Type" value={selectedRequest.type} />
+                        <InfoBlock label="Departure" value={formatDateTime(selectedRequest.departureDate)} />
+                        <InfoBlock label="Return" value={formatDateTime(selectedRequest.expectedReturnDate)} />
+                        <InfoBlock label="Submitted" value={formatDateTime(selectedRequest.createdAt)} />
+                      </div>
+                      <InfoBlock label="Reason" value={selectedRequest.reason} />
+                      {selectedRequest.chaplainApproval?.reason ? (
+                        <InfoBlock label="Chaplaincy remarks" value={selectedRequest.chaplainApproval.reason} />
+                      ) : null}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Remarks</label>
+                        <Textarea
+                          value={reviewRemarks[selectedRequest.id] || ''}
+                          onChange={(event) =>
+                            setReviewRemarks((current) => ({ ...current, [selectedRequest.id]: event.target.value }))
+                          }
+                          placeholder="Add remarks for the student. These remarks are included on approval or denial."
+                          rows={4}
+                          className="rounded-[1.25rem] border-slate-200 bg-white/85"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <Button
+                          onClick={() => handleApprove(selectedRequest.id)}
+                          disabled={processingId === selectedRequest.id}
+                          className="brand-cta rounded-full border-0"
+                        >
+                          {processingId === selectedRequest.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                          )}
+                          {user?.role === 'chaplaincy' ? 'Approve and send to hall admin' : 'Approve'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
+                          disabled={processingId === selectedRequest.id || !reviewRemarks[selectedRequest.id]?.trim()}
+                          onClick={() => handleReject(selectedRequest.id)}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Deny
+                        </Button>
+                      </div>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <InfoBlock label="Destination" value={request.destination} />
-                      <InfoBlock label="Departure" value={new Date(request.departureDate).toLocaleString()} />
-                      <InfoBlock label="Return" value={new Date(request.expectedReturnDate).toLocaleString()} />
-                    </div>
-                    <InfoBlock label="Reason" value={request.reason} />
-                    {request.chaplainApproval?.reason ? (
-                      <InfoBlock label="Chaplaincy remarks" value={request.chaplainApproval.reason} />
-                    ) : null}
-                    <Textarea
-                      value={reviewRemarks[request.id] || ''}
-                      onChange={(event) =>
-                        setReviewRemarks((current) => ({ ...current, [request.id]: event.target.value }))
-                      }
-                      placeholder="Add remarks for the student. These remarks are included on approval or denial."
-                      rows={3}
-                      className="rounded-[1.25rem] border-slate-200 bg-white/85"
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={() => handleApprove(request.id)}
-                        disabled={processingId === request.id}
-                        className="brand-cta rounded-full border-0"
-                      >
-                        {processingId === request.id ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                        )}
-                        {user?.role === 'chaplaincy' ? 'Approve and send to hall admin' : 'Approve'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
-                        disabled={processingId === request.id || !reviewRemarks[request.id]?.trim()}
-                        onClick={() => handleReject(request.id)}
-                      >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        Deny
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  ) : null}
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </TabsContent>
 
         <TabsContent value="students" className="space-y-4">
           <SectionIntro title="Students" description="View student records and pass history." />
-          {selectedStudent ? (
-              <Card className="brand-panel border">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-slate-950">{selectedStudent.name}</CardTitle>
-                    <CardDescription className="text-slate-500">{selectedStudent.matric}</CardDescription>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {user?.role === 'super_admin' ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          className="rounded-full border-white/80 bg-white/80 hover:bg-white"
-                          disabled={processingId === selectedStudent.id}
-                          onClick={() => handleResetUserPassword(selectedStudent)}
-                        >
-                          <KeyRound className="mr-2 h-4 w-4" />
-                          Send reset link
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
-                          disabled={processingId === selectedStudent.id}
-                          onClick={() => handleDeleteUser(selectedStudent.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Disable account
-                        </Button>
-                      </>
-                    ) : null}
-                    <Button variant="outline" className="rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => setSelectedStudent(null)}>
-                      Back
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <InfoBlock label="Faculty" value={selectedStudent.faculty || 'Not set'} />
-                  <InfoBlock label="Department" value={selectedStudent.department || 'Not set'} />
-                  <InfoBlock label="Level" value={selectedStudent.level ? String(selectedStudent.level) : 'Not set'} />
-                  <InfoBlock label="Hostel" value={selectedStudent.hostel || 'Not set'} />
-                  <InfoBlock label="Room / Hostel No." value={selectedStudent.room || 'Not set'} />
-                  <InfoBlock label="Phone" value={selectedStudent.phone || 'Not set'} />
-                  <InfoBlock label="Guardian Phone" value={selectedStudent.guardianPhone || 'Not set'} />
-                  <InfoBlock label="Total Requests" value={String(selectedStudent.totalRequests || 0)} />
-                  <InfoBlock label="Approved Passes" value={String(selectedStudent.approvedPasses || 0)} />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-slate-950">Pass history</h3>
-                  {selectedStudent.passHistory?.length ? (
-                    selectedStudent.passHistory.map((pass: any) => (
-                      <div key={pass.id} className="rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3">
-                        <p className="font-medium text-slate-950">{pass.destination}</p>
-                        <p className="text-sm text-slate-500">
-                          {pass.type} • {pass.status}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-slate-500">No pass history yet.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ) : studentsLoading ? (
+          {studentsLoading ? (
             <LoadingCard label="Loading students..." />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {students.map((student) => (
-                <Card key={student.id} className="brand-panel border">
-                  <CardContent className="space-y-3 pt-6">
-                    <div>
-                      <p className="font-semibold text-slate-950">{student.name}</p>
-                      <p className="text-xs text-slate-500">{student.matric}</p>
-                    </div>
-                    <p className="text-sm text-slate-500">{student.hostel || 'No hostel set'}</p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" className="flex-1 rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => handleViewStudent(student.id)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View details
-                      </Button>
+            <>
+              <Card className="brand-panel border">
+                <CardHeader>
+                  <CardTitle className="text-lg text-slate-950">Student directory</CardTitle>
+                  <CardDescription className="text-slate-500">
+                    Open a student only when you need the full record and actions.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {students.map((student) => (
+                    <button
+                      key={student.id}
+                      type="button"
+                      onClick={() => void handleViewStudent(student.id)}
+                      className="flex w-full flex-col gap-3 rounded-[1.35rem] border border-blue-100/80 bg-white/80 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-slate-950">{student.name}</p>
+                        <p className="truncate text-sm text-slate-500">{student.matric || 'No matric set'}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                        <span>{student.hostel || 'No hostel set'}</span>
+                        <span>•</span>
+                        <span>{student.level ? `${student.level} level` : 'No level'}</span>
+                        <div className="rounded-full border border-white/80 bg-white px-3 py-1.5 text-slate-700">
+                          <Eye className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Dialog open={Boolean(selectedStudent)} onOpenChange={(open) => !open && setSelectedStudent(null)}>
+                <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-[1.75rem] border-slate-200 p-0">
+                  {selectedStudent ? (
+                    <div className="space-y-6 p-6">
+                      <DialogHeader className="pr-10">
+                        <DialogTitle className="text-2xl text-slate-950">{selectedStudent.name}</DialogTitle>
+                        <DialogDescription className="text-sm leading-6 text-slate-600">
+                          {selectedStudent.matric}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <InfoBlock label="Faculty" value={selectedStudent.faculty || 'Not set'} />
+                        <InfoBlock label="Department" value={selectedStudent.department || 'Not set'} />
+                        <InfoBlock label="Level" value={selectedStudent.level ? String(selectedStudent.level) : 'Not set'} />
+                        <InfoBlock label="Hostel" value={selectedStudent.hostel || 'Not set'} />
+                        <InfoBlock label="Room / Hostel No." value={selectedStudent.room || 'Not set'} />
+                        <InfoBlock label="Phone" value={selectedStudent.phone || 'Not set'} />
+                        <InfoBlock label="Guardian Phone" value={selectedStudent.guardianPhone || 'Not set'} />
+                        <InfoBlock label="Total Requests" value={String(selectedStudent.totalRequests || 0)} />
+                        <InfoBlock label="Approved Passes" value={String(selectedStudent.approvedPasses || 0)} />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-semibold text-slate-950">Pass history</h3>
+                        {selectedStudent.passHistory?.length ? (
+                          selectedStudent.passHistory.map((pass: any) => (
+                            <div key={pass.id} className="flex items-center justify-between rounded-[1.25rem] border border-blue-100/80 bg-white/80 px-4 py-3">
+                              <div>
+                                <p className="font-medium text-slate-950">{pass.destination}</p>
+                                <p className="text-sm text-slate-500">
+                                  {pass.type} • {formatDateTime(pass.createdAt)}
+                                </p>
+                              </div>
+                              <StatusBadge
+                                label={pass.status}
+                                tone="border-slate-200 bg-slate-100 text-slate-700"
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-500">No pass history yet.</p>
+                        )}
+                      </div>
                       {user?.role === 'super_admin' ? (
-                        <>
+                        <div className="flex flex-col gap-3 sm:flex-row">
                           <Button
                             variant="outline"
                             className="rounded-full border-white/80 bg-white/80 hover:bg-white"
-                            disabled={processingId === student.id}
-                            onClick={() => handleResetUserPassword(student)}
+                            disabled={processingId === selectedStudent.id}
+                            onClick={() => handleResetUserPassword(selectedStudent)}
                           >
-                            <KeyRound className="h-4 w-4" />
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            Send reset link
                           </Button>
                           <Button
                             variant="outline"
                             className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
-                            disabled={processingId === student.id}
-                            onClick={() => handleDeleteUser(student.id)}
+                            disabled={processingId === selectedStudent.id}
+                            onClick={() => handleDeleteUser(selectedStudent.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Disable account
                           </Button>
-                        </>
+                        </div>
                       ) : null}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  ) : null}
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </TabsContent>
 
@@ -1469,7 +1526,7 @@ export default function AdminDashboardPage() {
                       <div>
                         <p className="font-medium text-slate-950">{admin.name}</p>
                         <p className="text-sm text-slate-500">
-                          {admin.email} • {admin.role.replace('_', ' ')}
+                          {admin.email} â€¢ {admin.role.replace('_', ' ')}
                         </p>
                       </div>
                       {user?.role === 'super_admin' && user.id !== admin.id && (
@@ -1512,8 +1569,8 @@ export default function AdminDashboardPage() {
                         <div key={invite.id} className="rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3">
                           <p className="font-medium text-slate-950">{invite.email}</p>
                           <p className="text-sm text-slate-500">
-                            {invite.role.replace('_', ' ')} • {invite.status}
-                            {invite.hostel ? ` • ${invite.hostel}` : ''}
+                            {invite.role.replace('_', ' ')} â€¢ {invite.status}
+                            {invite.hostel ? ` â€¢ ${invite.hostel}` : ''}
                           </p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Button variant="outline" size="sm" className="rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => handleCopy(inviteUrl)}>
