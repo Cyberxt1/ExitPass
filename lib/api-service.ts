@@ -168,6 +168,13 @@ function generateTemporaryPassword() {
   return `ExitPass!${Math.random().toString(16).slice(2, 10)}`;
 }
 
+function generatePassQrCode(requestId: string) {
+  const compactRequestId = requestId.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  const readableRequestId = compactRequestId.slice(0, 8) || "PASS";
+  const nonce = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `EP-${readableRequestId}-${nonce}`;
+}
+
 async function hostelsMatchForAccess(leftHostel?: string | null, rightHostel?: string | null) {
   const normalizedLeft = normalizeHostelValue(leftHostel);
   const normalizedRight = normalizeHostelValue(rightHostel);
@@ -759,7 +766,7 @@ export const apiService = {
         expectedReturnDate: Timestamp.fromDate(new Date(requestRecord.expectedReturnDate)),
         status: "approved",
         currentStage: "completed",
-        qrCode: `PASS_${requestId}_${Math.random().toString(16).slice(2, 14)}`,
+        qrCode: generatePassQrCode(requestId),
         hallAdminApproval: {
           approvedBy: actor.id,
           approverName: actor.name,

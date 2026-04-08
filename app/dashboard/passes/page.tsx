@@ -59,6 +59,20 @@ function getApprovalCopy(label: string, approval?: Pass['chaplainApproval']) {
   return `${outcome} by ${actor} on ${formatDateTime(approval.approvedAt)}.${remarks}`;
 }
 
+function getPassDisplayId(pass: Pass) {
+  const baseId = (pass.requestId || pass.id || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  if (!baseId) {
+    return 'PENDING';
+  }
+
+  if (baseId.length <= 12) {
+    return baseId;
+  }
+
+  return `${baseId.slice(0, 6)}-${baseId.slice(-6)}`;
+}
+
 export default function PassesPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -195,16 +209,40 @@ export default function PassesPage() {
                       <div className="rounded-[1.75rem] border border-white/90 bg-white p-6 shadow-[0_26px_70px_-45px_rgba(15,23,42,0.55)]">
                         <div className="flex h-56 w-56 flex-col items-center justify-center rounded-[1.25rem] border border-dashed border-slate-200 bg-slate-50">
                           <QrCode className="h-28 w-28 text-slate-900" />
-                          <p className="mt-4 max-w-[12rem] text-center text-xs font-medium tracking-[0.18em] text-slate-500">
-                            {selectedPass.qrCode || 'QR code appears after approval'}
+                          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                            Pass ID
+                          </p>
+                          <p className="mt-2 max-w-[12rem] text-center text-sm font-semibold tracking-[0.18em] text-slate-900">
+                            {getPassDisplayId(selectedPass)}
+                          </p>
+                          <p className="mt-2 max-w-[12rem] text-center text-[11px] leading-5 text-slate-500">
+                            Use this same pass to leave and to return until security marks it returned.
                           </p>
                         </div>
                       </div>
                     </div>
 
+                    <div className="rounded-[1.25rem] border border-white/70 bg-white/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                        QR token
+                      </p>
+                      <p className="mt-2 break-all font-mono text-sm leading-6 text-slate-700">
+                        {selectedPass.qrCode || 'QR code appears after approval'}
+                      </p>
+                    </div>
+
                     <div className="mt-6 grid gap-4 sm:grid-cols-2">
                       <DetailBlock label="Reason" value={selectedPass.reason} />
                       <DetailBlock label="Issued" value={formatDateTime(selectedPass.createdAt)} />
+                      <DetailBlock label="Pass ID" value={getPassDisplayId(selectedPass)} />
+                      <DetailBlock
+                        label="Gate use"
+                        value={
+                          selectedPass.actualReturnDate
+                            ? 'This pass has already been used for return.'
+                            : 'The same approved pass is used for exit and return.'
+                        }
+                      />
                     </div>
                   </div>
 
