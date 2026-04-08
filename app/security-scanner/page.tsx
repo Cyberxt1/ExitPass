@@ -475,7 +475,7 @@ export default function SecurityScannerPage() {
         <Button
           type="button"
           onClick={() => setVerifyModalOpen(true)}
-          className="brand-cta fixed right-6 bottom-6 z-40 h-14 w-14 rounded-full border-0 shadow-[0_20px_45px_-24px_rgba(37,99,235,0.65)]"
+          className="brand-cta fixed right-5 bottom-24 z-40 h-14 w-14 rounded-full border-0 shadow-[0_20px_45px_-24px_rgba(37,99,235,0.65)] lg:right-6 lg:bottom-6"
           aria-label="Verify pass"
         >
           <Plus className="h-6 w-6" />
