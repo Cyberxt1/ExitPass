@@ -347,6 +347,78 @@ function buildStudentAccessDirectoryPayload(profile: {
   };
 }
 
+function hasPassStudentIdentity(pass: Pass) {
+  return Boolean(
+    pass.student &&
+      pass.student.name &&
+      pass.student.name !== "Unknown User" &&
+      pass.student.matric,
+  );
+}
+
+async function hydratePassStudentIdentity(pass: Pass): Promise<Pass> {
+  if (hasPassStudentIdentity(pass)) {
+    return pass;
+  }
+
+  if (pass.requestId) {
+    const requestSnapshot = await getDoc(doc(getFirebaseDb(), "passRequests", pass.requestId));
+
+    if (requestSnapshot.exists()) {
+      const requestRecord = mapPassRequest(requestSnapshot.id, requestSnapshot.data() || {});
+
+      if (requestRecord.student?.name && requestRecord.student.name !== "Unknown User") {
+        return {
+          ...pass,
+          student: {
+            ...requestRecord.student,
+            id: pass.studentId || requestRecord.student.id,
+          },
+        };
+      }
+    }
+  }
+
+  if (!pass.studentId) {
+    return pass;
+  }
+
+  const directorySnapshot = await getDocs(
+    query(collection(getFirebaseDb(), "studentAccessDirectory"), where("userId", "==", pass.studentId), limit(1)),
+  );
+  const directoryRecord = directorySnapshot.docs[0]?.data();
+
+  if (!directoryRecord) {
+    return pass;
+  }
+
+  const fallbackLevel = parseStudentLevel(
+    directoryRecord.level as string | number | null | undefined,
+  );
+
+  return {
+    ...pass,
+    student: {
+      id: pass.studentId,
+      name: typeof directoryRecord.name === "string" ? directoryRecord.name : pass.student?.name || "Unknown User",
+      email: typeof directoryRecord.email === "string" ? directoryRecord.email : pass.student?.email || "",
+      matric: typeof directoryRecord.matric === "string" ? directoryRecord.matric : pass.student?.matric || "",
+      role: "student",
+      hostel: typeof directoryRecord.hostel === "string" ? directoryRecord.hostel : pass.student?.hostel,
+      room: typeof directoryRecord.room === "string" ? directoryRecord.room : pass.student?.room,
+      department:
+        typeof directoryRecord.department === "string"
+          ? directoryRecord.department
+          : pass.student?.department,
+      faculty:
+        typeof directoryRecord.faculty === "string"
+          ? directoryRecord.faculty
+          : pass.student?.faculty,
+      level: fallbackLevel ?? pass.student?.level,
+    },
+  };
+}
+
 function hasCompleteStudentDirectoryProfile(profile: User) {
   return (
     isValidMatric(profile.matric) &&
@@ -934,7 +1006,10 @@ export const apiService = {
     assertFirebaseReady();
 
     const snapshot = await getDocs(collection(getFirebaseDb(), "passes"));
-    return sortByCreatedAtDesc(snapshot.docs.map((item) => mapPass(item.id, item.data())));
+    const passes = await Promise.all(
+      snapshot.docs.map((item) => hydratePassStudentIdentity(mapPass(item.id, item.data()))),
+    );
+    return sortByCreatedAtDesc(passes);
   },
 
   async getOverduePasses() {
@@ -1610,7 +1685,9 @@ export const apiService = {
       };
     }
 
-    const pass = mapPass(snapshot.docs[0].id, snapshot.docs[0].data());
+    const pass = await hydratePassStudentIdentity(
+      mapPass(snapshot.docs[0].id, snapshot.docs[0].data()),
+    );
     const now = Date.now();
     const departure = new Date(pass.departureDate).getTime();
     const expectedReturn = new Date(pass.expectedReturnDate).getTime();
@@ -1707,7 +1784,7 @@ export const apiService = {
       throw new Error("Pass not found.");
     }
 
-    const pass = mapPass(passSnapshot.id, passSnapshot.data());
+    const pass = await hydratePassStudentIdentity(mapPass(passSnapshot.id, passSnapshot.data()));
 
     if (pass.actualReturnDate || pass.status === "completed") {
       throw new Error("This pass has already been marked as returned.");
@@ -1746,7 +1823,7 @@ export const apiService = {
     });
 
     const updatedPass = await getDoc(passRef);
-    return mapPass(updatedPass.id, updatedPass.data() || {});
+    return hydratePassStudentIdentity(mapPass(updatedPass.id, updatedPass.data() || {}));
   },
 
   isConfigured() {
