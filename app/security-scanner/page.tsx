@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
+  Camera,
+  CameraOff,
   CheckCircle2,
   Clock3,
   History,
@@ -36,9 +38,15 @@ import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import { formatDateTime } from '@/lib/platform';
 import type { Pass, PassVerificationResult, ScanLog } from '@/lib/types';
 
+type CameraState = 'idle' | 'starting' | 'ready' | 'paused' | 'unsupported' | 'blocked' | 'error';
+
 export default function SecurityScannerPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scannerRef = useRef<InstanceType<(typeof import('qr-scanner'))['default']> | null>(null);
+  const cameraBootTokenRef = useRef(0);
+  const isHandlingCameraDecodeRef = useRef(false);
   const [qrInput, setQrInput] = useState('');
   const [verificationResult, setVerificationResult] = useState<PassVerificationResult | null>(null);
   const [returnRemarks, setReturnRemarks] = useState('');
@@ -48,6 +56,10 @@ export default function SecurityScannerPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [securityLoading, setSecurityLoading] = useState(true);
   const [processingReturnId, setProcessingReturnId] = useState<string | null>(null);
+  const [cameraState, setCameraState] = useState<CameraState>('idle');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraEnabled, setCameraEnabled] = useState(true);
+  const [lastCameraScan, setLastCameraScan] = useState('');
 
   useEffect(() => {
     if (!isLoading && user?.role !== 'security') {
@@ -62,6 +74,134 @@ export default function SecurityScannerPage() {
 
     void loadSecurityData();
   }, [user?.id]);
+
+  const stopCameraScanner = () => {
+    cameraBootTokenRef.current += 1;
+
+    if (scannerRef.current) {
+      scannerRef.current.stop();
+      scannerRef.current.destroy();
+      scannerRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopCameraScanner(), []);
+
+  useEffect(() => {
+    if (isLoading || user?.role !== 'security' || activeTab !== 'scanner' || !cameraEnabled) {
+      stopCameraScanner();
+
+      if (activeTab !== 'scanner') {
+        setCameraState('idle');
+      } else if (!cameraEnabled) {
+        setCameraState((currentState) =>
+          currentState === 'unsupported' || currentState === 'blocked' || currentState === 'error'
+            ? currentState
+            : 'paused',
+        );
+      }
+
+      return;
+    }
+
+    const bootToken = cameraBootTokenRef.current + 1;
+    cameraBootTokenRef.current = bootToken;
+    let cancelled = false;
+
+    const startCameraScanner = async () => {
+      if (!videoRef.current) {
+        return;
+      }
+
+      if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        setCameraState('blocked');
+        setCameraError('Camera access needs HTTPS on this device.');
+        return;
+      }
+
+      setCameraState('starting');
+      setCameraError(null);
+
+      try {
+        const { default: QrScanner } = await import('qr-scanner');
+
+        if (!(await QrScanner.hasCamera())) {
+          if (!cancelled && cameraBootTokenRef.current === bootToken) {
+            setCameraState('unsupported');
+            setCameraError('No camera was found on this device.');
+          }
+          return;
+        }
+
+        if (scannerRef.current) {
+          scannerRef.current.stop();
+          scannerRef.current.destroy();
+        }
+
+        const scanner = new QrScanner(
+          videoRef.current,
+          (result) => {
+            void handleCameraDecode(result.data);
+          },
+          {
+            preferredCamera: 'environment',
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+            maxScansPerSecond: 8,
+            returnDetailedScanResult: true,
+          },
+        );
+
+        scannerRef.current = scanner;
+        await scanner.start();
+
+        if (cancelled || cameraBootTokenRef.current !== bootToken) {
+          scanner.stop();
+          scanner.destroy();
+          if (scannerRef.current === scanner) {
+            scannerRef.current = null;
+          }
+          return;
+        }
+
+        setCameraState('ready');
+        setCameraError(null);
+      } catch (error) {
+        if (cancelled || cameraBootTokenRef.current !== bootToken) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'Unable to start the camera.';
+        const normalizedMessage = message.toLowerCase();
+        const nextState =
+          normalizedMessage.includes('denied') || normalizedMessage.includes('notallowed')
+            ? 'blocked'
+            : normalizedMessage.includes('notfound')
+              ? 'unsupported'
+              : 'error';
+
+        setCameraState(nextState);
+        setCameraError(
+          nextState === 'blocked'
+            ? 'Camera permission was denied. Allow access in the browser and try again.'
+            : nextState === 'unsupported'
+              ? 'No usable camera is available for scanning.'
+              : message,
+        );
+      }
+    };
+
+    void startCameraScanner();
+
+    return () => {
+      cancelled = true;
+      if (scannerRef.current) {
+        scannerRef.current.stop();
+        scannerRef.current.destroy();
+        scannerRef.current = null;
+      }
+    };
+  }, [activeTab, cameraEnabled, isLoading, user?.role]);
 
   const loadSecurityData = async () => {
     setSecurityLoading(true);
@@ -78,16 +218,13 @@ export default function SecurityScannerPage() {
     }
   };
 
-  const handleScan = async () => {
-    if (!qrInput.trim()) {
-      return;
-    }
-
+  const runScan = async (value: string) => {
     setIsScanning(true);
 
     try {
-      const result = await apiService.verifyQRCode(qrInput);
-      await apiService.logScan(qrInput, 'Main Gate');
+      const normalizedQrCode = value.trim();
+      const result = await apiService.verifyQRCode(normalizedQrCode);
+      await apiService.logScan(normalizedQrCode, 'Main Gate');
       setVerificationResult(result);
       setReturnRemarks('');
       setQrInput('');
@@ -100,6 +237,33 @@ export default function SecurityScannerPage() {
       });
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleScan = async () => {
+    if (!qrInput.trim()) {
+      return;
+    }
+
+    await runScan(qrInput);
+  };
+
+  const handleCameraDecode = async (value: string) => {
+    const normalizedValue = value.trim();
+
+    if (!normalizedValue || isHandlingCameraDecodeRef.current) {
+      return;
+    }
+
+    isHandlingCameraDecodeRef.current = true;
+    setLastCameraScan(normalizedValue);
+    setQrInput(normalizedValue);
+    setCameraEnabled(false);
+
+    try {
+      await runScan(normalizedValue);
+    } finally {
+      isHandlingCameraDecodeRef.current = false;
     }
   };
 
@@ -145,6 +309,29 @@ export default function SecurityScannerPage() {
   if (user?.role !== 'security') {
     return null;
   }
+
+  const cameraStatusTone =
+    cameraState === 'ready'
+      ? 'border-blue-200 bg-blue-50 text-blue-800'
+      : cameraState === 'starting'
+        ? 'border-blue-100 bg-white/85 text-slate-700'
+        : cameraState === 'paused'
+          ? 'border-slate-300 bg-slate-100 text-slate-800'
+          : 'border-slate-300 bg-slate-100 text-slate-800';
+  const cameraStatusLabel =
+    cameraState === 'ready'
+      ? 'Camera live'
+      : cameraState === 'starting'
+        ? 'Starting camera'
+        : cameraState === 'paused'
+          ? 'Camera paused'
+          : cameraState === 'unsupported'
+            ? 'No camera'
+            : cameraState === 'blocked'
+              ? 'Permission needed'
+              : cameraState === 'error'
+                ? 'Camera error'
+                : 'Camera idle';
 
   return (
     <DashboardShell title="Security Scanner" contentClassName="mx-auto max-w-7xl pb-20 lg:pb-8">
@@ -215,15 +402,79 @@ export default function SecurityScannerPage() {
 
           <TabsContent value="scanner" className="space-y-6">
             <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
-              <SectionCard title="Live scan" description="Paste or scan a QR value.">
+              <SectionCard title="Live scan" description="Use the device camera or paste a QR value.">
                 <div className="space-y-5">
                   <div className="brand-panel-soft rounded-[2rem] border p-6">
-                    <div className="brand-grid rounded-[1.5rem] border border-dashed border-blue-200 bg-white/85 p-8 text-center">
-                      <QrCode className="mx-auto h-16 w-16 text-slate-900" />
-                      <p className="mt-4 text-sm font-medium text-slate-700">Scan or paste pass data.</p>
+                    <div className="relative overflow-hidden rounded-[1.5rem] border border-blue-100 bg-slate-950">
+                      <div className="aspect-[4/3] w-full">
+                        <video
+                          ref={videoRef}
+                          className="h-full w-full object-cover"
+                          muted
+                          playsInline
+                        />
+                      </div>
+
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+                        <div className="w-full max-w-xs rounded-[1.5rem] border border-white/15 bg-slate-950/72 px-4 py-5 text-center text-white backdrop-blur-sm">
+                          {cameraState === 'ready' ? (
+                            <>
+                              <Camera className="mx-auto h-10 w-10 text-blue-200" />
+                              <p className="mt-3 text-sm font-medium">Point the rear camera at the pass QR code.</p>
+                            </>
+                          ) : (
+                            <>
+                              <CameraOff className="mx-auto h-10 w-10 text-white/75" />
+                              <p className="mt-3 text-sm font-medium">
+                                {cameraError || 'Camera preview will appear here.'}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                      <StatusBadge label={cameraStatusLabel} tone={cameraStatusTone} />
+                      <Button
+                        type="button"
+                        variant={cameraEnabled ? 'outline' : 'default'}
+                        onClick={() => setCameraEnabled((currentValue) => !currentValue)}
+                        className={
+                          cameraEnabled
+                            ? 'rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white'
+                            : 'brand-cta rounded-full border-0'
+                        }
+                      >
+                        {cameraEnabled ? (
+                          <>
+                            <CameraOff className="mr-2 h-4 w-4" />
+                            Stop camera
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="mr-2 h-4 w-4" />
+                            Scan next pass
+                          </>
+                        )}
+                      </Button>
                     </div>
 
                     <div className="mt-5 space-y-3">
+                      <p className="text-sm text-slate-600">
+                        Rear camera opens automatically when allowed. If scanning is blocked, you can still paste the
+                        QR value below.
+                      </p>
+
+                      {lastCameraScan ? (
+                        <div className="rounded-[1.25rem] border border-blue-100/80 bg-white/80 px-4 py-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Last camera scan
+                          </p>
+                          <p className="mt-2 break-all font-mono text-sm text-slate-800">{lastCameraScan}</p>
+                        </div>
+                      ) : null}
+
                       <label className="text-sm font-medium text-slate-700">QR input</label>
                       <Input
                         placeholder="Paste QR code data here..."
