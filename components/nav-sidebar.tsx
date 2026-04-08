@@ -85,15 +85,15 @@ export function NavSidebar({ onItemClick }: NavSidebarProps) {
       <div className="brand-panel rounded-[1.75rem] border p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-[#9eb6d3]">
               ExitPass
             </p>
-            <p className="mt-2 text-lg font-semibold text-slate-950">{getRoleLabel(user?.role)}</p>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
+            <p className="mt-2 text-lg font-semibold text-slate-950 dark:text-[#eef5ff]">{getRoleLabel(user?.role)}</p>
+            <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-[#b6c9e0]">
               {user?.name || 'Signed in user'}
             </p>
           </div>
-          <div className="brand-icon-chip rounded-2xl border p-3 text-slate-900">
+          <div className="brand-icon-chip rounded-2xl border p-3 text-slate-900 dark:text-[#eef5ff]">
             <Sparkles className="h-5 w-5" />
           </div>
         </div>
@@ -111,7 +111,7 @@ export function NavSidebar({ onItemClick }: NavSidebarProps) {
                 'w-full justify-start gap-3 rounded-[1.25rem] px-4 py-6 text-base',
                 isActive
                   ? 'brand-cta hover:opacity-95'
-                  : 'text-slate-700 hover:bg-white/85 hover:text-slate-950',
+                  : 'text-slate-700 hover:bg-white/85 hover:text-slate-950 dark:text-[#c5d7ee] dark:hover:bg-white/10 dark:hover:text-white',
               )}
               onClick={() => {
                 navigate(item.href);
@@ -126,14 +126,14 @@ export function NavSidebar({ onItemClick }: NavSidebarProps) {
       </div>
 
       <div className="brand-panel-soft rounded-[1.5rem] border p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Status</p>
-        <p className="mt-2 text-sm font-medium text-slate-900">Live sync</p>
-        <p className="mt-1 text-sm text-slate-600">Updates appear here as they happen.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-[#9eb6d3]">Status</p>
+        <p className="mt-2 text-sm font-medium text-slate-900 dark:text-[#eef5ff]">Live sync</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-[#b6c9e0]">Updates appear here as they happen.</p>
       </div>
 
       <Button
         variant="ghost"
-        className="w-full justify-start gap-3 rounded-[1.25rem] px-4 py-6 text-base text-slate-500 hover:bg-white/85 hover:text-slate-950"
+        className="w-full justify-start gap-3 rounded-[1.25rem] px-4 py-6 text-base text-slate-500 hover:bg-white/85 hover:text-slate-950 dark:text-[#9eb6d3] dark:hover:bg-white/10 dark:hover:text-white"
         onClick={handleLogout}
       >
         <LogOut className="w-5 h-5" />

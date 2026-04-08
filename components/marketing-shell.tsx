@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import { Link } from '@/components/app-link';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +28,7 @@ export function MarketingShell({
   const { user } = useAuth();
 
   return (
-    <div className="brand-shell min-h-screen overflow-x-hidden text-slate-950">
+    <div className="brand-shell min-h-screen overflow-x-hidden text-slate-950 dark:text-[#e6f0ff]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="brand-glow-primary glow-shift absolute left-[-7rem] top-20 h-56 w-56 rounded-full blur-3xl" />
         <div className="brand-glow-secondary glow-shift absolute right-[-8rem] top-24 h-72 w-72 rounded-full blur-3xl" />
@@ -38,17 +39,17 @@ export function MarketingShell({
       </div>
 
       <div className="relative">
-        <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-[#071221]/78">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <Link href="/" className="flex items-center gap-3">
-              <span className="brand-mark inline-flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold text-white">
+              {/* <span className="brand-mark inline-flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold text-white">
                 EP
-              </span>
+              </span> */}
               <div>
-                <p className="text-sm font-semibold tracking-[0.24em] text-slate-700 uppercase">
+                <p className="text-sm font-semibold tracking-[0.24em] text-slate-700 uppercase dark:text-[#d8e7fa]">
                   ExitPass
                 </p>
-                <p className="text-xs text-slate-500">White, black, and blue clarity</p>
+                <p className="text-xs text-slate-500 dark:text-[#9eb6d3]">White, black, and blue clarity</p>
               </div>
             </Link>
 
@@ -59,7 +60,9 @@ export function MarketingShell({
                   href={link.href}
                   className={cn(
                     'text-sm transition-colors',
-                    pathname === link.href ? 'text-slate-950' : 'text-slate-500 hover:text-slate-950',
+                    pathname === link.href
+                      ? 'text-slate-950 dark:text-white'
+                      : 'text-slate-500 hover:text-slate-950 dark:text-[#9eb6d3] dark:hover:text-white',
                   )}
                 >
                   {link.label}
@@ -68,6 +71,8 @@ export function MarketingShell({
             </nav>
 
             <div className="flex items-center gap-2">
+              <ThemeToggle className="border-blue-100/70 bg-white/80 text-slate-700 hover:bg-white dark:border-white/10 dark:bg-white/[0.06] dark:text-[#d7e7fb] dark:hover:bg-white/[0.12]" />
+
               {user ? (
                 <Button
                   asChild
@@ -91,14 +96,14 @@ export function MarketingShell({
           {children}
         </main>
 
-        <footer className="border-t border-blue-100/70 bg-white/72 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <footer className="border-t border-blue-100/70 bg-white/72 backdrop-blur-xl dark:border-white/10 dark:bg-[#071221]/72">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 dark:text-[#a8bcd4] sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <p>ExitPass keeps student movement bright, fast, and traceable.</p>
             <div className="flex flex-wrap gap-4">
-              <Link href="/about" className="hover:text-slate-950">About</Link>
-              <Link href="/faqs" className="hover:text-slate-950">FAQs</Link>
-              <Link href="/help" className="hover:text-slate-950">Help</Link>
-              <Link href="/forgot-password" className="hover:text-slate-950">Forgot password</Link>
+              <Link href="/about" className="hover:text-slate-950 dark:hover:text-white">About</Link>
+              <Link href="/faqs" className="hover:text-slate-950 dark:hover:text-white">FAQs</Link>
+              <Link href="/help" className="hover:text-slate-950 dark:hover:text-white">Help</Link>
+              <Link href="/forgot-password" className="hover:text-slate-950 dark:hover:text-white">Forgot password</Link>
             </div>
           </div>
         </footer>

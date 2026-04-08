@@ -59,12 +59,12 @@ export function DashboardShell({
               onClick={() => setSidebarOpen(false)}
             />
             <aside className="brand-panel fixed inset-y-4 left-4 right-12 z-50 max-w-sm overflow-hidden rounded-[2rem] border backdrop-blur-xl">
-              <div className="flex items-center justify-between border-b border-blue-100/80 px-4 py-3">
-                <p className="text-sm font-semibold text-slate-900">Navigation</p>
+              <div className="flex items-center justify-between border-b border-blue-100/80 px-4 py-3 dark:border-white/10">
+                <p className="text-sm font-semibold text-slate-900 dark:text-[#eef5ff]">Navigation</p>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-full"
+                  className="h-9 w-9 rounded-full dark:text-[#d7e7fb]"
                   onClick={() => setSidebarOpen(false)}
                 >
                   <X className="h-4 w-4" />
@@ -80,7 +80,7 @@ export function DashboardShell({
         <Button
           type="button"
           size="icon"
-          className="brand-panel fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full border text-slate-950 backdrop-blur-xl hover:bg-white"
+          className="brand-panel fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full border text-slate-950 backdrop-blur-xl hover:bg-white dark:text-[#eef5ff] dark:hover:bg-white/10"
           onClick={() => setSidebarOpen((current) => !current)}
         >
           {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}

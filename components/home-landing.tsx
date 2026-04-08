@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Link } from "@/components/app-link";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { getDefaultRouteForRole } from "@/lib/firebase/auth";
 import type { User } from "@/lib/types";
@@ -107,9 +108,9 @@ export function HomeLanding({ user }: { user: User | null }) {
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
             <a href="#top" className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#90cbf8,#5aacf0_45%,#102040)] text-sm font-semibold tracking-[0.2em] text-[#040c1a] shadow-[0_20px_45px_-24px_rgba(144,203,248,0.95)]">
+              {/* <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#90cbf8,#5aacf0_45%,#102040)] text-sm font-semibold tracking-[0.2em] text-[#040c1a] shadow-[0_20px_45px_-24px_rgba(144,203,248,0.95)]">
                 EP
-              </span>
+              </span> */}
               <div>
                 <p className="text-sm font-extrabold uppercase tracking-[0.28em] text-white">ExitPass</p>
                 <p className="text-xs text-[#a8bcd4]">Request. Approve. Scan.</p>
@@ -137,14 +138,17 @@ export function HomeLanding({ user }: { user: User | null }) {
               </a>
             </nav>
 
-            <Button
-              asChild
-              className="rounded-sm border-0 bg-[#5aacf0] px-5 text-xs font-bold uppercase tracking-[0.18em] text-[#040c1a] hover:bg-[#90cbf8]"
-            >
-              <Link href={user ? getDefaultRouteForRole(user.role) : "/login"}>
-                {user ? "Dashboard" : "Student Access"}
-              </Link>
-            </Button>
+            <div className="flex items-center gap-3">
+              <ThemeToggle className="rounded-sm border border-white/16 bg-white/[0.06] text-white hover:bg-white/[0.12]" />
+              <Button
+                asChild
+                className="rounded-sm border-0 bg-[#5aacf0] px-5 text-xs font-bold uppercase tracking-[0.18em] text-[#040c1a] hover:bg-[#90cbf8]"
+              >
+                <Link href={user ? getDefaultRouteForRole(user.role) : "/login"}>
+                  {user ? "Dashboard" : "Student Access"}
+                </Link>
+              </Button>
+            </div>
           </div>
         </header>
 
