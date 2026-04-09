@@ -90,7 +90,7 @@ export function HomeLanding({ user }: { user: User | null }) {
         className="fixed inset-0 z-0"
         style={{
           backgroundImage:
-            "linear-gradient(180deg, rgba(4,12,26,0.65) 0%, rgba(4,12,26,0.45) 35%, rgba(4,12,26,0.86) 100%), url('/background.png')",
+            "linear-gradient(180deg, rgba(4,12,26,0.65) 0%, rgba(4,12,26,0.45) 35%, rgba(4,12,26,0.86) 100%), url('/background.jpg')",
           backgroundPosition: "center",
           backgroundSize: "cover",
         }}

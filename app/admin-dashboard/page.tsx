@@ -19,17 +19,18 @@ import {
 } from 'lucide-react';
 
 import { DashboardShell } from '@/components/dashboard-shell';
-import { EmptyState, LoadingPanel, MetricCard, PageHero, StatusBadge } from '@/components/platform-ui';
+import { MetricCard, PageHero, StatusBadge } from '@/components/platform-ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { apiService } from '@/lib/api-service';
 import { useAuth } from '@/lib/auth-context';
 import { getDefaultRouteForRole, isAdminRole } from '@/lib/firebase/auth';
-import { formatDateTime, getRoleLabel } from '@/lib/platform';
+import { formatDateTime, getPassStatusMeta, getPassTypeLabel, getRoleLabel } from '@/lib/platform';
 import {
   FACULTY_OPTIONS,
   LEVEL_OPTIONS,
@@ -157,6 +158,15 @@ type StudentAccountFormState = Omit<StudentSignupInput, 'level'> & {
   level: string;
 };
 
+type StudentFilterState = {
+  search: string;
+  hostel: string;
+  room: string;
+  faculty: string;
+  department: string;
+  level: string;
+};
+
 const INITIAL_STUDENT_FORM: StudentAccountFormState = {
   name: '',
   email: '',
@@ -175,6 +185,21 @@ function todayDate() {
   return new Date().toISOString().split('T')[0];
 }
 
+const INITIAL_STUDENT_FILTERS: StudentFilterState = {
+  search: '',
+  hostel: 'all',
+  room: 'all',
+  faculty: 'all',
+  department: 'all',
+  level: 'all',
+};
+
+function getUniqueValues(values: Array<string | number | undefined>) {
+  return [...new Set(values.filter((value): value is string | number => Boolean(value)))].sort((left, right) =>
+    String(left).localeCompare(String(right)),
+  );
+}
+
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -184,6 +209,8 @@ export default function AdminDashboardPage() {
   const [pendingRequests, setPendingRequests] = useState<PassRequest[]>([]);
   const [students, setStudents] = useState<User[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<PassRequest | null>(null);
+  const [selectedRequestStudent, setSelectedRequestStudent] = useState<StudentDetails | null>(null);
+  const [selectedRequestStudentError, setSelectedRequestStudentError] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<StudentDetails | null>(null);
   const [admins, setAdmins] = useState<User[]>([]);
   const [hostels, setHostels] = useState<Hostel[]>([]);
@@ -222,15 +249,17 @@ export default function AdminDashboardPage() {
   const [staffApprovalReasons, setStaffApprovalReasons] = useState<Record<string, string>>({});
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [studentsLoading, setStudentsLoading] = useState(true);
+  const [selectedRequestStudentLoading, setSelectedRequestStudentLoading] = useState(false);
   const [staffLoading, setStaffLoading] = useState(true);
   const [governanceLoading, setGovernanceLoading] = useState(true);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState('');
   const [actionError, setActionError] = useState('');
+  const [studentFilters, setStudentFilters] = useState<StudentFilterState>(INITIAL_STUDENT_FILTERS);
 
   const canManageApprovals = ['hall_admin', 'chaplaincy'].includes(user?.role || '');
-  const canManageStudents = ['hall_admin', 'chaplaincy', 'super_admin'].includes(user?.role || '');
+  const canManageStudents = ['hall_admin', 'super_admin'].includes(user?.role || '');
   const canManageStaff = ['chaplaincy', 'security', 'super_admin'].includes(user?.role || '');
   const canManageGovernance = user?.role === 'super_admin';
   const canManageHostels = user?.role === 'super_admin';
@@ -259,6 +288,84 @@ export default function AdminDashboardPage() {
   const studentDepartmentOptions = useMemo(
     () => getDepartmentsForFaculty(studentAccountForm.faculty),
     [studentAccountForm.faculty],
+  );
+  const studentHostelOptions = useMemo(
+    () => getUniqueValues(students.map((student) => student.hostel)),
+    [students],
+  );
+  const studentRoomOptions = useMemo(
+    () => getUniqueValues(students.map((student) => student.room)),
+    [students],
+  );
+  const studentFacultyFilterOptions = useMemo(
+    () => getUniqueValues(students.map((student) => student.faculty)),
+    [students],
+  );
+  const studentDepartmentFilterOptions = useMemo(
+    () => getUniqueValues(students.map((student) => student.department)),
+    [students],
+  );
+  const studentLevelFilterOptions = useMemo(
+    () => getUniqueValues(students.map((student) => student.level)),
+    [students],
+  );
+  const filteredStudents = useMemo(() => {
+    const searchTerm = studentFilters.search.trim().toLowerCase();
+
+    return students.filter((student) => {
+      const searchableText = [
+        student.name,
+        student.email,
+        student.matric,
+        student.hostel,
+        student.room,
+        student.department,
+        student.faculty,
+        student.level ? String(student.level) : '',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      if (searchTerm && !searchableText.includes(searchTerm)) {
+        return false;
+      }
+
+      if (studentFilters.hostel !== 'all' && student.hostel !== studentFilters.hostel) {
+        return false;
+      }
+
+      if (studentFilters.room !== 'all' && student.room !== studentFilters.room) {
+        return false;
+      }
+
+      if (studentFilters.faculty !== 'all' && student.faculty !== studentFilters.faculty) {
+        return false;
+      }
+
+      if (studentFilters.department !== 'all' && student.department !== studentFilters.department) {
+        return false;
+      }
+
+      if (studentFilters.level !== 'all' && String(student.level || '') !== studentFilters.level) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [studentFilters, students]);
+  const hallAdminStatsRows = useMemo(
+    () =>
+      analytics
+        ? [
+            { label: 'Students in hostel', value: analytics.totalStudents, detail: 'Visible student records' },
+            { label: 'Requests submitted', value: analytics.totalRequests, detail: 'All requests in your queue scope' },
+            { label: 'Pending reviews', value: analytics.pendingCount, detail: 'Still waiting for a final outcome' },
+            { label: 'Approved passes', value: analytics.approvedCount, detail: 'Requests that reached approval' },
+            { label: 'Rejected requests', value: analytics.rejectedCount, detail: 'Requests denied in the flow' },
+            { label: 'Active passes', value: analytics.activePassesCount, detail: 'Students currently out with a live pass' },
+          ]
+        : [],
+    [analytics],
   );
 
   useEffect(() => {
@@ -302,6 +409,57 @@ export default function AdminDashboardPage() {
     if (activeTab === 'updates') void loadAnnouncements();
     if (activeTab === 'analytics') void loadAnalytics();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (user?.role && canManageStudents) {
+      void loadStudents();
+    }
+  }, [canManageStudents, user?.role]);
+
+  useEffect(() => {
+    if (user?.role && canViewAnalytics) {
+      void loadAnalytics();
+    }
+  }, [canViewAnalytics, user?.role]);
+
+  useEffect(() => {
+    if (!selectedRequest?.studentId) {
+      setSelectedRequestStudent(null);
+      setSelectedRequestStudentError('');
+      setSelectedRequestStudentLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      setSelectedRequestStudentLoading(true);
+      setSelectedRequestStudentError('');
+
+      try {
+        const details = await apiService.getStudentDetails(selectedRequest.studentId);
+
+        if (!cancelled) {
+          setSelectedRequestStudent(details);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSelectedRequestStudent(null);
+          setSelectedRequestStudentError(
+            error instanceof Error ? error.message : 'Unable to load student history.',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setSelectedRequestStudentLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRequest?.id, selectedRequest?.studentId]);
 
   const buildInviteUrl = (token: string, role: User['role']) => {
     const portal = getPortalForRole(role);
@@ -1164,6 +1322,59 @@ export default function AdminDashboardPage() {
                       {selectedRequest.chaplainApproval?.reason ? (
                         <InfoBlock label="Chaplaincy remarks" value={selectedRequest.chaplainApproval.reason} />
                       ) : null}
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <h3 className="text-lg font-semibold text-slate-950">Student pass history</h3>
+                          {selectedRequestStudent ? (
+                            <span className="text-sm text-slate-500">
+                              {selectedRequestStudent.totalRequests || 0} requests • {selectedRequestStudent.approvedPasses || 0} approved
+                            </span>
+                          ) : null}
+                        </div>
+                        {selectedRequestStudentLoading ? (
+                          <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-500">
+                            Loading student history...
+                          </div>
+                        ) : selectedRequestStudentError ? (
+                          <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+                            {selectedRequestStudentError}
+                          </div>
+                        ) : selectedRequestStudent ? (
+                          <>
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                              <InfoBlock label="Department" value={selectedRequestStudent.department || 'Not set'} />
+                              <InfoBlock label="Level" value={selectedRequestStudent.level ? String(selectedRequestStudent.level) : 'Not set'} />
+                              <InfoBlock label="Room" value={selectedRequestStudent.room || 'Not set'} />
+                              <InfoBlock label="Phone" value={selectedRequestStudent.phone || 'Not set'} />
+                            </div>
+                            {selectedRequestStudent.passHistory.length ? (
+                              <div className="space-y-2">
+                                {selectedRequestStudent.passHistory.map((pass) => (
+                                  <div
+                                    key={pass.id}
+                                    className="flex flex-col gap-3 rounded-[1.25rem] border border-blue-100/80 bg-white/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                                  >
+                                    <div>
+                                      <p className="font-medium text-slate-950">{pass.destination}</p>
+                                      <p className="text-sm text-slate-500">
+                                        {getPassTypeLabel(pass.type)} • {formatDateTime(pass.createdAt)}
+                                      </p>
+                                    </div>
+                                    <StatusBadge
+                                      label={getPassStatusMeta(pass).label}
+                                      tone={`${getPassStatusMeta(pass).surface} ${getPassStatusMeta(pass).tone}`}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-slate-500">No pass history yet.</p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-slate-500">No student history is available for this request yet.</p>
+                        )}
+                      </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700">Remarks</label>
                         <Textarea
@@ -1208,7 +1419,14 @@ export default function AdminDashboardPage() {
         </TabsContent>
 
         <TabsContent value="students" className="space-y-4">
-          <SectionIntro title="Students" description="View student records and pass history." />
+          <SectionIntro
+            title="Students"
+            description={
+              user?.role === 'super_admin'
+                ? 'Search across the full student directory and open any student record.'
+                : 'Review students assigned to your hostel and open their full pass history.'
+            }
+          />
           {studentsLoading ? (
             <LoadingCard label="Loading students..." />
           ) : (
@@ -1217,31 +1435,142 @@ export default function AdminDashboardPage() {
                 <CardHeader>
                   <CardTitle className="text-lg text-slate-950">Student directory</CardTitle>
                   <CardDescription className="text-slate-500">
-                    Open a student only when you need the full record and actions.
+                    Filter by hostel, room, faculty, department, level, or a general search term.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  {students.map((student) => (
-                    <button
-                      key={student.id}
-                      type="button"
-                      onClick={() => void handleViewStudent(student.id)}
-                      className="flex w-full flex-col gap-3 rounded-[1.35rem] border border-blue-100/80 bg-white/80 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white sm:flex-row sm:items-center sm:justify-between"
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                    <Input
+                      value={studentFilters.search}
+                      onChange={(event) =>
+                        setStudentFilters((current) => ({ ...current, search: event.target.value }))
+                      }
+                      placeholder="Search name, matric, room..."
+                      className="border-slate-200 bg-white/85 xl:col-span-2"
+                    />
+                    {user?.role === 'super_admin' ? (
+                      <select
+                        value={studentFilters.hostel}
+                        onChange={(event) =>
+                          setStudentFilters((current) => ({ ...current, hostel: event.target.value }))
+                        }
+                        className="h-10 rounded-xl border border-slate-200 bg-white/85 px-3 text-sm text-slate-700"
+                      >
+                        <option value="all">All hostels</option>
+                        {studentHostelOptions.map((hostel) => (
+                          <option key={hostel} value={String(hostel)}>
+                            {hostel}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                    <select
+                      value={studentFilters.room}
+                      onChange={(event) =>
+                        setStudentFilters((current) => ({ ...current, room: event.target.value }))
+                      }
+                      className="h-10 rounded-xl border border-slate-200 bg-white/85 px-3 text-sm text-slate-700"
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold text-slate-950">{student.name}</p>
-                        <p className="truncate text-sm text-slate-500">{student.matric || 'No matric set'}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                        <span>{student.hostel || 'No hostel set'}</span>
-                        <span>•</span>
-                        <span>{student.level ? `${student.level} level` : 'No level'}</span>
-                        <div className="rounded-full border border-white/80 bg-white px-3 py-1.5 text-slate-700">
-                          <Eye className="h-4 w-4" />
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      <option value="all">All rooms</option>
+                      {studentRoomOptions.map((room) => (
+                        <option key={room} value={String(room)}>
+                          {room}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={studentFilters.faculty}
+                      onChange={(event) =>
+                        setStudentFilters((current) => ({ ...current, faculty: event.target.value }))
+                      }
+                      className="h-10 rounded-xl border border-slate-200 bg-white/85 px-3 text-sm text-slate-700"
+                    >
+                      <option value="all">All faculties</option>
+                      {studentFacultyFilterOptions.map((faculty) => (
+                        <option key={faculty} value={String(faculty)}>
+                          {faculty}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={studentFilters.department}
+                      onChange={(event) =>
+                        setStudentFilters((current) => ({ ...current, department: event.target.value }))
+                      }
+                      className="h-10 rounded-xl border border-slate-200 bg-white/85 px-3 text-sm text-slate-700"
+                    >
+                      <option value="all">All departments</option>
+                      {studentDepartmentFilterOptions.map((department) => (
+                        <option key={department} value={String(department)}>
+                          {department}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={studentFilters.level}
+                      onChange={(event) =>
+                        setStudentFilters((current) => ({ ...current, level: event.target.value }))
+                      }
+                      className="h-10 rounded-xl border border-slate-200 bg-white/85 px-3 text-sm text-slate-700"
+                    >
+                      <option value="all">All levels</option>
+                      {studentLevelFilterOptions.map((level) => (
+                        <option key={level} value={String(level)}>
+                          {level} level
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {filteredStudents.length ? (
+                    <div className="overflow-hidden rounded-[1.5rem] border border-blue-100/80 bg-white/80">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead>Name</TableHead>
+                            <TableHead>Matric</TableHead>
+                            <TableHead>Hostel</TableHead>
+                            <TableHead>Room</TableHead>
+                            <TableHead>Department</TableHead>
+                            <TableHead>Level</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredStudents.map((student) => (
+                            <TableRow key={student.id} className="bg-transparent">
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium text-slate-950">{student.name}</p>
+                                  <p className="text-xs text-slate-500">{student.email}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell>{student.matric || 'Not set'}</TableCell>
+                              <TableCell>{student.hostel || 'Not set'}</TableCell>
+                              <TableCell>{student.room || 'Not set'}</TableCell>
+                              <TableCell>{student.department || 'Not set'}</TableCell>
+                              <TableCell>{student.level ? `${student.level}` : 'Not set'}</TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => void handleViewStudent(student.id)}
+                                  className="rounded-full border-white/80 bg-white/80 text-slate-700 hover:bg-white"
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Open
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/80 p-6 text-sm text-slate-500">
+                      No students match the current filters.
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1269,17 +1598,17 @@ export default function AdminDashboardPage() {
                       <div className="space-y-2">
                         <h3 className="text-lg font-semibold text-slate-950">Pass history</h3>
                         {selectedStudent.passHistory?.length ? (
-                          selectedStudent.passHistory.map((pass: any) => (
+                          selectedStudent.passHistory.map((pass) => (
                             <div key={pass.id} className="flex items-center justify-between rounded-[1.25rem] border border-blue-100/80 bg-white/80 px-4 py-3">
                               <div>
                                 <p className="font-medium text-slate-950">{pass.destination}</p>
                                 <p className="text-sm text-slate-500">
-                                  {pass.type} • {formatDateTime(pass.createdAt)}
+                                  {getPassTypeLabel(pass.type)} • {formatDateTime(pass.createdAt)}
                                 </p>
                               </div>
                               <StatusBadge
-                                label={pass.status}
-                                tone="border-slate-200 bg-slate-100 text-slate-700"
+                                label={getPassStatusMeta(pass).label}
+                                tone={`${getPassStatusMeta(pass).surface} ${getPassStatusMeta(pass).tone}`}
                               />
                             </div>
                           ))
@@ -1632,25 +1961,65 @@ export default function AdminDashboardPage() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <SectionIntro title="Analytics" description="Pass and request totals." />
+          <SectionIntro
+            title="Analytics"
+            description={
+              user?.role === 'hall_admin'
+                ? 'Hostel-level request and pass totals for the students assigned to you.'
+                : 'Pass and request totals.'
+            }
+          />
           {analyticsLoading ? (
             <LoadingCard label="Loading analytics..." />
           ) : analytics ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                <StatCard label="Students" value={analytics.totalStudents} color="text-slate-950" />
-                <StatCard label="Requests" value={analytics.totalRequests} color="text-blue-700" />
-                <StatCard label="Approved" value={analytics.approvedCount} color="text-blue-600" />
-                <StatCard label="Pending" value={analytics.pendingCount} color="text-slate-700" />
-                <StatCard label="Rejected" value={analytics.rejectedCount} color="text-slate-500" />
-                <StatCard label="Active Passes" value={analytics.activePassesCount} color="text-blue-500" />
-              </div>
+              {user?.role === 'hall_admin' ? (
+                <Card className="brand-panel border">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-slate-950">Hostel stats table</CardTitle>
+                    <CardDescription className="text-slate-500">
+                      Summary of students and pass activity within your hostel scope.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>Metric</TableHead>
+                          <TableHead>Detail</TableHead>
+                          <TableHead className="text-right">Value</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {hallAdminStatsRows.map((row) => (
+                          <TableRow key={row.label} className="bg-transparent">
+                            <TableCell className="font-medium text-slate-950">{row.label}</TableCell>
+                            <TableCell className="text-slate-500">{row.detail}</TableCell>
+                            <TableCell className="text-right text-base font-semibold text-slate-950">
+                              {row.value}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                  <StatCard label="Students" value={analytics.totalStudents} color="text-slate-950" />
+                  <StatCard label="Requests" value={analytics.totalRequests} color="text-blue-700" />
+                  <StatCard label="Approved" value={analytics.approvedCount} color="text-blue-600" />
+                  <StatCard label="Pending" value={analytics.pendingCount} color="text-slate-700" />
+                  <StatCard label="Rejected" value={analytics.rejectedCount} color="text-slate-500" />
+                  <StatCard label="Active Passes" value={analytics.activePassesCount} color="text-blue-500" />
+                </div>
+              )}
               <Card className="brand-panel border">
                 <CardHeader>
                   <CardTitle className="text-lg text-slate-950">Weekly trend</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {analytics.trend.map((row: any) => (
+                  {analytics.trend.map((row) => (
                     <div key={row.day} className="grid grid-cols-4 rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3 text-sm">
                       <span className="font-medium text-slate-950">{row.day}</span>
                       <span className="text-slate-700">{row.requests} requests</span>

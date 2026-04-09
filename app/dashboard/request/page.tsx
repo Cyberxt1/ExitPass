@@ -24,8 +24,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
 import { getDefaultRouteForRole } from '@/lib/firebase/auth';
-import { formatDateTime, getPassTypeLabel } from '@/lib/platform';
-import type { Holiday, PassType } from '@/lib/types';
+import { formatDateTime, getPassStatusMeta, getPassTypeLabel } from '@/lib/platform';
+import type { Holiday, Pass, PassType } from '@/lib/types';
 
 const passTypes: Array<{
   value: PassType;
@@ -79,6 +79,14 @@ function formatPreviewDateTime(date: Date) {
   }).format(date);
 }
 
+function getOpenBookingCopy(pass: Pass) {
+  if (pass.status === 'approved' || pass.status === 'expired') {
+    return `You already have a pass for ${pass.destination}. It has to be completed before you can request another one.`;
+  }
+
+  return `You already have a request for ${pass.destination} in the approval flow. Wait for that request to finish before booking again.`;
+}
+
 export default function RequestPassPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -88,6 +96,8 @@ export default function RequestPassPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [openBooking, setOpenBooking] = useState<Pass | null>(null);
+  const [bookingCheckLoading, setBookingCheckLoading] = useState(true);
   const [formData, setFormData] = useState({
     type: 'short' as PassType,
     destination: '',
@@ -115,6 +125,34 @@ export default function RequestPassPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      setBookingCheckLoading(true);
+
+      try {
+        const booking = await apiService.getOpenStudentBooking(user.id);
+
+        if (!cancelled) {
+          setOpenBooking(booking);
+        }
+      } finally {
+        if (!cancelled) {
+          setBookingCheckLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const selectedHoliday = useMemo(
     () => holidays.find((holiday) => holiday.id === selectedHolidayId) || null,
@@ -207,6 +245,8 @@ export default function RequestPassPage() {
     [formData.reason, user?.hostel],
   );
 
+  const formLocked = isSubmitting || Boolean(openBooking);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
@@ -219,6 +259,13 @@ export default function RequestPassPage() {
     setIsSubmitting(true);
 
     try {
+      const blockingPass = await apiService.getOpenStudentBooking(user!.id);
+
+      if (blockingPass) {
+        setOpenBooking(blockingPass);
+        throw new Error(getOpenBookingCopy(blockingPass));
+      }
+
       const destination = selectedHoliday ? selectedHoliday.title : formData.destination.trim();
       const reason = selectedHoliday
         ? selectedHoliday.description || `Holiday booking for ${selectedHoliday.title}`
@@ -303,6 +350,37 @@ export default function RequestPassPage() {
             description="Choose the type and fill in the trip details."
           >
             <form onSubmit={handleSubmit} className="space-y-6">
+              {bookingCheckLoading ? (
+                <div className="flex gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+                  <Loader2 className="mt-0.5 h-4 w-4 flex-shrink-0 animate-spin text-slate-500" />
+                  <p className="text-sm leading-6 text-slate-600">Checking your current pass status...</p>
+                </div>
+              ) : openBooking ? (
+                <div className="space-y-3 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-700" />
+                    <p className="text-sm font-semibold text-amber-900">Another pass is still open</p>
+                    <StatusBadge
+                      label={getPassStatusMeta(openBooking).label}
+                      tone={`${getPassStatusMeta(openBooking).surface} ${getPassStatusMeta(openBooking).tone}`}
+                    />
+                  </div>
+                  <p className="text-sm leading-6 text-amber-900">{getOpenBookingCopy(openBooking)}</p>
+                  <p className="text-sm text-amber-800">
+                    {openBooking.destination} • {formatDateTime(openBooking.departureDate)} to{' '}
+                    {formatDateTime(openBooking.expectedReturnDate)}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate('/dashboard/passes')}
+                    className="rounded-full border-amber-300 bg-white/80 text-amber-900 hover:bg-white"
+                  >
+                    View current pass
+                  </Button>
+                </div>
+              ) : null}
+
               <div className="space-y-3">
                 <label className="text-sm font-medium text-slate-700">Pass type</label>
                 <div className="grid gap-3 md:grid-cols-3">
@@ -310,6 +388,7 @@ export default function RequestPassPage() {
                     <button
                       key={type.value}
                       type="button"
+                      disabled={formLocked}
                       onClick={() => {
                         setFormData((current) => ({ ...current, type: type.value }));
                         if (type.value !== 'holiday') {
@@ -342,6 +421,7 @@ export default function RequestPassPage() {
                         <button
                           key={holiday.id}
                           type="button"
+                          disabled={formLocked}
                           onClick={() => {
                             setSelectedHolidayId(holiday.id);
                             setFormData((current) => ({
@@ -387,7 +467,7 @@ export default function RequestPassPage() {
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, destination: event.target.value }))
                     }
-                    disabled={isSubmitting || formData.type === 'holiday'}
+                    disabled={formLocked || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -405,7 +485,7 @@ export default function RequestPassPage() {
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, reason: event.target.value }))
                     }
-                    disabled={isSubmitting || formData.type === 'holiday'}
+                    disabled={formLocked || formData.type === 'holiday'}
                     className="min-h-32 rounded-[1.5rem] border-slate-200 bg-white/80"
                     required
                   />
@@ -427,7 +507,7 @@ export default function RequestPassPage() {
                             : current.returnDate,
                       }))
                     }
-                    disabled={isSubmitting || formData.type === 'holiday'}
+                    disabled={formLocked || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -440,7 +520,7 @@ export default function RequestPassPage() {
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, departureTime: event.target.value }))
                     }
-                    disabled={isSubmitting || formData.type === 'holiday'}
+                    disabled={formLocked || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -455,7 +535,7 @@ export default function RequestPassPage() {
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, returnDate: event.target.value }))
                     }
-                    disabled={isSubmitting || formData.type === 'holiday'}
+                    disabled={formLocked || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -468,7 +548,7 @@ export default function RequestPassPage() {
                     onChange={(event) =>
                       setFormData((current) => ({ ...current, returnTime: event.target.value }))
                     }
-                    disabled={isSubmitting || formData.type === 'holiday'}
+                    disabled={formLocked || formData.type === 'holiday'}
                     className="h-12 rounded-2xl border-slate-200 bg-white/80"
                     required
                   />
@@ -485,7 +565,7 @@ export default function RequestPassPage() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button
                   type="submit"
-                  disabled={isSubmitting || Boolean(validationMessage)}
+                  disabled={formLocked || bookingCheckLoading || Boolean(validationMessage)}
                   className="brand-cta h-12 flex-1 rounded-full"
                 >
                   {isSubmitting ? (

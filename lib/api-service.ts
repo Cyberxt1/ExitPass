@@ -318,6 +318,42 @@ function normalizeOptionalText(value?: string | null) {
   return value?.trim() || "";
 }
 
+function isBlockingStudentBooking(pass: Pick<Pass, "status">) {
+  return ["chaplaincy_required", "pending", "approved", "expired"].includes(pass.status);
+}
+
+async function getVisibleStudentsForActor(actor: User, students: User[]) {
+  if (actor.role === "super_admin") {
+    return students;
+  }
+
+  if (actor.role !== "hall_admin" || !actor.hostel) {
+    return [];
+  }
+
+  const visibleStudents: User[] = [];
+
+  for (const student of students) {
+    if (student.hostel && (await hostelsMatchForAccess(actor.hostel, student.hostel))) {
+      visibleStudents.push(student);
+    }
+  }
+
+  return visibleStudents;
+}
+
+async function canActorAccessStudentDetails(actor: User, student?: Pick<User, "hostel"> | null) {
+  if (actor.role === "super_admin" || actor.role === "chaplaincy") {
+    return true;
+  }
+
+  if (actor.role !== "hall_admin" || !actor.hostel || !student?.hostel) {
+    return false;
+  }
+
+  return hostelsMatchForAccess(actor.hostel, student.hostel);
+}
+
 function buildStudentAccessDirectoryPayload(profile: {
   uid: string;
   name: string;
@@ -699,6 +735,12 @@ export const apiService = {
       throw new Error("Only a signed-in student can submit a pass request.");
     }
 
+    const blockingPass = await this.getOpenStudentBooking(request.studentId);
+
+    if (blockingPass) {
+      throw new Error("You already have a pass in progress. Complete it before requesting another one.");
+    }
+
     const requestRef = await addDoc(collection(getFirebaseDb(), "passRequests"), {
       studentId: request.studentId,
       studentSnapshot: {
@@ -762,17 +804,24 @@ export const apiService = {
     }
 
     if (currentUser.role === "hall_admin") {
-      return requests.filter((request) => {
-        if (request.status !== "pending" || !request.chaplainApproval) {
-          return false;
-        }
+      if (!currentUser.hostel) {
+        return [];
+      }
 
-        if (!currentUser.hostel) {
-          return true;
-        }
+      const visibleRequests: PassRequest[] = [];
 
-        return request.student?.hostel?.toLowerCase() === currentUser.hostel.toLowerCase();
-      });
+      for (const request of requests) {
+        if (
+          request.status === "pending" &&
+          request.chaplainApproval &&
+          request.student?.hostel &&
+          (await hostelsMatchForAccess(currentUser.hostel, request.student.hostel))
+        ) {
+          visibleRequests.push(request);
+        }
+      }
+
+      return visibleRequests;
     }
 
     return [];
@@ -986,6 +1035,11 @@ export const apiService = {
     return sortByCreatedAtDesc(combined);
   },
 
+  async getOpenStudentBooking(studentId: string) {
+    const passes = await this.getStudentPasses(studentId);
+    return passes.find((pass) => isBlockingStudentBooking(pass)) || null;
+  },
+
   async getActiveStudentPasses(studentId: string) {
     const passes = await this.getStudentPasses(studentId);
     const now = Date.now();
@@ -1037,12 +1091,20 @@ export const apiService = {
 
   async getAllStudents() {
     assertFirebaseReady();
+    let actor = await getCurrentSignedInProfile();
+
+    actor = await ensureHallAdminHostelAssignment(actor);
+
+    if (!["hall_admin", "super_admin"].includes(actor.role)) {
+      throw new Error("You do not have access to the student directory.");
+    }
 
     const snapshot = await getDocs(
       query(collection(getFirebaseDb(), "users"), where("role", "==", "student")),
     );
 
-    return snapshot.docs.map((item) => mapUser(item.id, item.data()));
+    const students = snapshot.docs.map((item) => mapUser(item.id, item.data()));
+    return getVisibleStudentsForActor(actor, students);
   },
 
   async getAllUsers() {
@@ -1054,11 +1116,17 @@ export const apiService = {
 
   async getStudentDetails(studentId: string) {
     assertFirebaseReady();
+    let actor = await getCurrentSignedInProfile();
 
-    const [studentSnapshot, requestSnapshot, passesSnapshot] = await Promise.all([
+    actor = await ensureHallAdminHostelAssignment(actor);
+
+    if (!["hall_admin", "chaplaincy", "super_admin"].includes(actor.role)) {
+      throw new Error("You do not have access to this student record.");
+    }
+
+    const [studentSnapshot, requestSnapshot] = await Promise.all([
       getDoc(doc(getFirebaseDb(), "users", studentId)),
       getDocs(query(collection(getFirebaseDb(), "passRequests"), where("studentId", "==", studentId))),
-      getDocs(query(collection(getFirebaseDb(), "passes"), where("studentId", "==", studentId))),
     ]);
 
     if (!studentSnapshot.exists()) {
@@ -1066,12 +1134,19 @@ export const apiService = {
     }
 
     const student = mapUser(studentSnapshot.id, studentSnapshot.data());
-    const passHistory = passesSnapshot.docs.map((item) => mapPass(item.id, item.data()));
+
+    if (!(await canActorAccessStudentDetails(actor, student))) {
+      throw new Error("You do not have access to this student record.");
+    }
+
+    const passHistory = await this.getStudentPasses(studentId);
 
     return {
       ...student,
       totalRequests: requestSnapshot.size,
-      approvedPasses: passHistory.filter((pass) => pass.status === "approved").length,
+      approvedPasses: passHistory.filter((pass) =>
+        ["approved", "completed", "expired"].includes(pass.status),
+      ).length,
       passHistory: sortByCreatedAtDesc(passHistory),
     };
   },
@@ -1614,6 +1689,14 @@ export const apiService = {
   },
 
   async getAnalytics() {
+    let actor = await getCurrentSignedInProfile();
+
+    if (!["hall_admin", "chaplaincy", "security", "super_admin"].includes(actor.role)) {
+      throw new Error("You do not have access to analytics.");
+    }
+
+    actor = await ensureHallAdminHostelAssignment(actor);
+
     const [studentsSnapshot, requestsSnapshot, passesSnapshot, scansSnapshot] = await Promise.all([
       getDocs(query(collection(getFirebaseDb(), "users"), where("role", "==", "student"))),
       getDocs(collection(getFirebaseDb(), "passRequests")),
@@ -1621,8 +1704,17 @@ export const apiService = {
       getDocs(collection(getFirebaseDb(), "scans")),
     ]);
 
-    const requests = requestsSnapshot.docs.map((item) => mapPassRequest(item.id, item.data()));
-    const passes = passesSnapshot.docs.map((item) => mapPass(item.id, item.data()));
+    let students = studentsSnapshot.docs.map((item) => mapUser(item.id, item.data()));
+    let requests = requestsSnapshot.docs.map((item) => mapPassRequest(item.id, item.data()));
+    let passes = passesSnapshot.docs.map((item) => mapPass(item.id, item.data()));
+
+    if (actor.role === "hall_admin") {
+      students = await getVisibleStudentsForActor(actor, students);
+      const visibleStudentIds = new Set(students.map((student) => student.id));
+      requests = requests.filter((request) => visibleStudentIds.has(request.studentId));
+      passes = passes.filter((pass) => visibleStudentIds.has(pass.studentId));
+    }
+
     const now = Date.now();
     const dayBuckets = Array.from({ length: 7 }, (_, index) => {
       const date = new Date();
@@ -1636,7 +1728,7 @@ export const apiService = {
     });
 
     return {
-      totalStudents: studentsSnapshot.size,
+      totalStudents: students.length,
       totalRequests: requests.length,
       approvedCount: requests.filter((request) => request.status === "approved").length,
       pendingCount: requests.filter((request) =>
