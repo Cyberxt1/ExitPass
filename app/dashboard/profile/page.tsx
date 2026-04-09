@@ -7,6 +7,7 @@ import {
   BookOpen,
   Building2,
   CheckCircle2,
+  ChevronDown,
   DoorOpen,
   IdCard,
   Loader2,
@@ -25,9 +26,9 @@ import {
   MetricCard,
   PageHero,
   SectionCard,
-  StatusBadge,
 } from '@/components/platform-ui';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
@@ -40,6 +41,12 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const [passes, setPasses] = useState<Pass[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [mobileOpenSections, setMobileOpenSections] = useState<Record<string, boolean>>({
+    identity: true,
+    profileEdits: false,
+    resetPassword: false,
+    movementSummary: false,
+  });
   const [editableName, setEditableName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameError, setNameError] = useState('');
@@ -76,6 +83,13 @@ export default function ProfilePage() {
     void logout().finally(() => {
       navigate('/login');
     });
+  };
+
+  const toggleMobileSection = (sectionId: string) => {
+    setMobileOpenSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }));
   };
 
   const passSummary = useMemo(
@@ -185,7 +199,12 @@ export default function ProfilePage() {
           <LoadingPanel label="Loading your profile summary..." />
         ) : (
           <div className="grid gap-6 xl:grid-cols-[1fr_0.92fr]">
-            <SectionCard title="Identity" description="Your saved account details.">
+            <ExpandableSectionCard
+              title="Identity"
+              description="Your saved account details."
+              mobileOpen={mobileOpenSections.identity}
+              onToggle={() => toggleMobileSection('identity')}
+            >
               <div className="grid gap-4 md:grid-cols-2">
                 <DetailBlock label="Full name" value={user.name} />
                 <DetailBlock label="Email address" value={user.email} />
@@ -244,12 +263,14 @@ export default function ProfilePage() {
                   </>
                 )}
               </div>
-            </SectionCard>
+            </ExpandableSectionCard>
 
             <div className="space-y-6">
-              <SectionCard
+              <ExpandableSectionCard
                 title="Profile edits"
                 description="You can update your name up to 2 times."
+                mobileOpen={mobileOpenSections.profileEdits}
+                onToggle={() => toggleMobileSection('profileEdits')}
               >
                 <form onSubmit={handleSaveName} className="space-y-4">
                   <div className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4">
@@ -313,61 +334,92 @@ export default function ProfilePage() {
                     )}
                   </Button>
                 </form>
-              </SectionCard>
+              </ExpandableSectionCard>
 
-              <SectionCard
-                title="Access"
-                description="Current account access."
+              <ExpandableSectionCard
+                title="Reset password"
+                description="Recover your account if you lose access."
+                mobileOpen={mobileOpenSections.resetPassword}
+                onToggle={() => toggleMobileSection('resetPassword')}
               >
-                <div className="space-y-4">
-                  <div className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      Permissions
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {(user.permissions?.length ? user.permissions : ['basic_access']).map((permission) => (
-                        <StatusBadge
-                          key={permission}
-                          label={permission.replace(/_/g, ' ')}
-                          tone="border-slate-200 bg-white text-slate-700"
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      Password support
-                    </p>
-                    <p className="mt-2 text-sm leading-7 text-slate-600">
-                      Reset your password if you lose access.
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate('/forgot-password')}
-                      className="mt-4 rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
-                    >
-                      <Mail className="mr-2 h-4 w-4" />
-                      Reset password
-                    </Button>
-                  </div>
+                <div className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                    Password support
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Reset your password if you lose access.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/forgot-password')}
+                    className="mt-4 rounded-full border-white/80 bg-white/80 text-slate-900 hover:bg-white"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Reset password
+                  </Button>
                 </div>
-              </SectionCard>
+              </ExpandableSectionCard>
 
-              <SectionCard
+              <ExpandableSectionCard
                 title="Movement summary"
                 description="Pass totals."
+                mobileOpen={mobileOpenSections.movementSummary}
+                onToggle={() => toggleMobileSection('movementSummary')}
               >
                 <div className="grid gap-3">
                   <DetailBlock label="Total records" value={passSummary.total} />
                   <DetailBlock label="Approved passes" value={passSummary.approved} />
                   <DetailBlock label="Pending review" value={passSummary.pending} />
                 </div>
-              </SectionCard>
+              </ExpandableSectionCard>
             </div>
           </div>
         )}
       </div>
     </DashboardShell>
+  );
+}
+
+function ExpandableSectionCard({
+  title,
+  description,
+  children,
+  mobileOpen,
+  onToggle,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  mobileOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <SectionCard title={title} description={description} className="hidden md:flex">
+        {children}
+      </SectionCard>
+
+      <Card className="brand-panel border md:hidden">
+        <CardHeader className="px-0 py-0">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={mobileOpen}
+            className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+          >
+            <div>
+              <CardTitle className="text-xl font-semibold text-slate-950">{title}</CardTitle>
+              {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
+            </div>
+            <ChevronDown
+              className={`h-5 w-5 flex-shrink-0 text-slate-500 transition-transform duration-300 ${
+                mobileOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+        </CardHeader>
+        {mobileOpen ? <CardContent>{children}</CardContent> : null}
+      </Card>
+    </>
   );
 }

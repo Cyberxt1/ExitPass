@@ -173,7 +173,7 @@ export default function DashboardPage() {
           <>
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
               <SectionCard
-                title="Pass spotlight"
+                title="Passes"
                 description="Your current pass or latest request."
               >
                 {activePasses[0] ? (
@@ -270,7 +270,7 @@ export default function DashboardPage() {
               <div className="space-y-6">
                 <SectionCard
                   title="Notifications"
-                  description="Latest approval and return updates."
+                  // description="Latest approval and return updates."
                 >
                   {notifications.length ? (
                     <div className="space-y-3">

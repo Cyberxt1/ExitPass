@@ -32,6 +32,7 @@ import {
   formatDate,
   formatDateTime,
   formatDurationDays,
+  formatShortDate,
   getPassStatusMeta,
   getPassTypeLabel,
   isPassCurrentlyActive,
@@ -222,10 +223,11 @@ export default function PassesPage() {
             }
           />
         ) : passes.length ? (
-          <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
+          <div className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
             <SectionCard
               title="Latest approved pass"
               description="Quick access to your current gate pass."
+              className="min-w-0"
             >
               {latestApprovedPass ? (
                 <button
@@ -246,8 +248,8 @@ export default function PassesPage() {
                     {latestApprovedPass.destination}
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-slate-600">{latestApprovedPass.reason}</p>
-                  <div className="mt-5 flex items-center justify-between text-sm text-slate-500">
-                    <span>{formatDate(latestApprovedPass.departureDate)}</span>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+                    <span>{formatShortDate(latestApprovedPass.departureDate)}</span>
                     <span>Open pass</span>
                   </div>
                 </button>
@@ -261,6 +263,7 @@ export default function PassesPage() {
             <SectionCard
               title="All records"
               description="Compact list. Open any pass for the full details and actions."
+              className="min-w-0"
             >
               <div className="mb-4 flex flex-wrap gap-2">
                 {filters.map((filter) => (
@@ -297,8 +300,8 @@ export default function PassesPage() {
                           {getPassTypeLabel(pass.type)} • {getPassDisplayId(pass)}
                         </p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                        <span>{formatDate(pass.departureDate)}</span>
+                      <div className="flex w-full flex-wrap items-center justify-between gap-2 text-sm text-slate-500 sm:w-auto sm:justify-end">
+                        <span>{formatShortDate(pass.departureDate)}</span>
                         <StatusBadge label={status.label} tone={`${status.surface} ${status.tone}`} />
                         <div className="rounded-full border border-white/80 bg-white px-3 py-1.5 text-slate-700">
                           <Eye className="h-4 w-4" />
@@ -347,8 +350,8 @@ export default function PassesPage() {
                 </div>
 
                 <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
-                  <div className="grid gap-5 md:grid-cols-[220px,1fr]">
-                    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-5 text-center">
+                  <div className="grid gap-5 lg:grid-cols-[220px,1fr]">
+                    <div className="mx-auto w-full max-w-sm rounded-[1.25rem] border border-slate-200 bg-slate-50 p-5 text-center">
                       <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-[1rem] border border-dashed border-slate-200 bg-white">
                         <QrCode className="h-16 w-16 text-slate-900" />
                       </div>
