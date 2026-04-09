@@ -32,7 +32,7 @@ export function DashboardShell({
       <DashboardHeader title={title} />
       <div aria-hidden className="hidden h-[4.5rem] lg:block" />
 
-      <div className="relative mx-auto w-full max-w-[1800px] px-0 lg:px-4 xl:px-6">
+      <div className="relative mx-auto w-full max-w-[1800px] px-0 lg:px-3 xl:px-4">
         <aside className="hidden lg:block">
           <div
             className="brand-panel fixed top-24 z-30 h-[calc(100vh-7rem)] w-72 overflow-hidden rounded-[2rem] border backdrop-blur-xl"
@@ -45,7 +45,7 @@ export function DashboardShell({
         </aside>
 
         <main className="min-w-0 lg:pl-[19rem] xl:pl-[19.5rem]">
-          <div className={cn('p-4 pb-24 sm:p-6 lg:py-8', contentClassName)}>{children}</div>
+          <div className={cn('p-2 pb-[4.5rem] sm:p-2.5 lg:py-4', contentClassName)}>{children}</div>
         </main>
       </div>
 

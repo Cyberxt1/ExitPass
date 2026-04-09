@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { DashboardShell } from '@/components/dashboard-shell';
+import { NotificationCenter } from '@/components/notification-center';
 import {
   EmptyState,
   LoadingPanel,
@@ -75,7 +76,7 @@ export default function DashboardPage() {
     }
   };
 
-  const studentMeta = [user?.matric, user?.hostel, user?.room ? `Room ${user.room}` : null]
+  const studentMeta = [user?.hostel, user?.room ? `Room ${user.room}` : null]
     .filter(Boolean)
     .join(' • ');
 
@@ -107,10 +108,10 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <PageHero
           eyebrow="Student"
-          title={`Welcome, ${user.name}`}
+          title={`Welcome, ${user.name}, ${user?.matric}`}
           description={
             studentMeta
-              ? `${studentMeta}. Create requests, check status, and open your QR pass here.`
+              ? `${studentMeta}.`
               : 'Create requests, check status, and open your QR pass here.'
           }
           actions={
@@ -267,33 +268,11 @@ export default function DashboardPage() {
                 )}
               </SectionCard>
 
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <SectionCard
                   title="Notifications"
-                  // description="Latest approval and return updates."
                 >
-                  {notifications.length ? (
-                    <div className="space-y-3">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className="rounded-[1.5rem] border border-white/70 bg-slate-50/90 p-4"
-                        >
-                          <p className="font-semibold text-slate-950">{notification.title}</p>
-                          <p className="mt-2 text-sm leading-6 text-slate-600">
-                            {notification.message}
-                          </p>
-                          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-400">
-                            {formatDateTime(notification.createdAt)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm leading-7 text-slate-600">
-                      No notifications yet.
-                    </div>
-                  )}
+                  <NotificationCenter notifications={notifications} className="h-72" />
                 </SectionCard>
 
                 <SectionCard

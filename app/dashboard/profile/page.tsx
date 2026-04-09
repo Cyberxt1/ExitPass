@@ -409,7 +409,6 @@ function ExpandableSectionCard({
           >
             <div>
               <CardTitle className="text-xl font-semibold text-slate-950">{title}</CardTitle>
-              {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
             </div>
             <ChevronDown
               className={`h-5 w-5 flex-shrink-0 text-slate-500 transition-transform duration-300 ${

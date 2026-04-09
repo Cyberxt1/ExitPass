@@ -78,6 +78,16 @@ function getPassDisplayId(pass: Pass) {
   return `${baseId.slice(0, 6)}-${baseId.slice(-6)}`;
 }
 
+function getCompactPassDisplayId(pass: Pass) {
+  const fullId = getPassDisplayId(pass);
+
+  if (fullId.length <= 18) {
+    return fullId;
+  }
+
+  return `${fullId.slice(0, 10)}...${fullId.slice(-6)}`;
+}
+
 export default function PassesPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -240,8 +250,8 @@ export default function PassesPage() {
                       label={getPassStatusMeta(latestApprovedPass).label}
                       tone={`${getPassStatusMeta(latestApprovedPass).surface} ${getPassStatusMeta(latestApprovedPass).tone}`}
                     />
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      {getPassDisplayId(latestApprovedPass)}
+                    <span className="w-full break-all text-[0.68rem] font-semibold uppercase leading-5 tracking-[0.14em] text-slate-500 sm:w-auto sm:text-xs sm:tracking-[0.22em]">
+                      {getCompactPassDisplayId(latestApprovedPass)}
                     </span>
                   </div>
                   <h2 className="mt-4 text-2xl font-semibold text-slate-950">
@@ -297,7 +307,7 @@ export default function PassesPage() {
                       <div className="min-w-0">
                         <p className="truncate text-base font-semibold text-slate-950">{pass.destination}</p>
                         <p className="truncate text-sm text-slate-500">
-                          {getPassTypeLabel(pass.type)} • {getPassDisplayId(pass)}
+                          {getPassTypeLabel(pass.type)} • {getCompactPassDisplayId(pass)}
                         </p>
                       </div>
                       <div className="flex w-full flex-wrap items-center justify-between gap-2 text-sm text-slate-500 sm:w-auto sm:justify-end">
@@ -329,14 +339,14 @@ export default function PassesPage() {
         )}
 
         <Dialog open={Boolean(selectedPass)} onOpenChange={(open) => !open && setSelectedPass(null)}>
-          <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto rounded-[1.5rem] border-slate-200 p-0">
+          <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto rounded-[1.5rem] border-slate-200 p-0 sm:max-w-3xl">
             {selectedPass ? (
-              <div className="bg-white">
-                <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
+              <div className="min-w-0 bg-white">
+                <div className="min-w-0 border-b border-slate-200 px-4 py-5 sm:px-6">
                   <DialogHeader className="pr-10">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <DialogTitle className="text-2xl text-slate-950">{selectedPass.destination}</DialogTitle>
+                      <div className="min-w-0">
+                        <DialogTitle className="break-words text-xl text-slate-950 sm:text-2xl">{selectedPass.destination}</DialogTitle>
                         <DialogDescription className="mt-2 text-sm leading-6 text-slate-600">
                           {getPassTypeLabel(selectedPass.type)} pass
                         </DialogDescription>
@@ -349,7 +359,7 @@ export default function PassesPage() {
                   </DialogHeader>
                 </div>
 
-                <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
+                <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6">
                   <div className="grid gap-5 lg:grid-cols-[220px,1fr]">
                     <div className="mx-auto w-full max-w-sm rounded-[1.25rem] border border-slate-200 bg-slate-50 p-5 text-center">
                       <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-[1rem] border border-dashed border-slate-200 bg-white">
@@ -358,7 +368,7 @@ export default function PassesPage() {
                       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
                         Pass ID
                       </p>
-                      <p className="mt-2 break-words text-sm font-semibold tracking-[0.14em] text-slate-900">
+                      <p className="mt-2 break-all text-xs font-semibold leading-6 text-slate-900 sm:text-sm sm:tracking-[0.14em]">
                         {getPassDisplayId(selectedPass)}
                       </p>
                       <p className="mt-3 text-xs leading-5 text-slate-500">
@@ -366,7 +376,7 @@ export default function PassesPage() {
                       </p>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="min-w-0 space-y-4">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <SimpleInfoCard label="Departure" value={formatDateTime(selectedPass.departureDate)} />
                         <SimpleInfoCard label="Return" value={formatDateTime(selectedPass.expectedReturnDate)} />
@@ -409,7 +419,7 @@ export default function PassesPage() {
                       variant="outline"
                       onClick={() => void copyPassId()}
                       disabled={!selectedPass.qrCode}
-                      className="h-11 rounded-full border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                      className="h-11 rounded-full border-slate-300 bg-white text-slate-900 hover:bg-slate-50 sm:flex-none"
                     >
                       <Copy className="mr-2 h-4 w-4" />
                       {copied ? 'Copied' : 'Copy pass ID'}

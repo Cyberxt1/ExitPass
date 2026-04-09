@@ -1688,6 +1688,47 @@ export const apiService = {
     );
   },
 
+  async markNotificationsRead(notificationIds: string[]) {
+    const actor = await getCurrentSignedInProfile();
+    const ids = [...new Set(notificationIds.filter(Boolean))];
+
+    if (!ids.length) {
+      return 0;
+    }
+
+    const db = getFirebaseDb();
+    let updatedCount = 0;
+
+    for (let index = 0; index < ids.length; index += 400) {
+      const batch = writeBatch(db);
+      const chunk = ids.slice(index, index + 400);
+
+      for (const notificationId of chunk) {
+        const notificationRef = doc(db, "notifications", notificationId);
+        const notificationSnapshot = await getDoc(notificationRef);
+
+        if (!notificationSnapshot.exists()) {
+          continue;
+        }
+
+        const notification = mapNotification(notificationSnapshot.id, notificationSnapshot.data() || {});
+
+        if (notification.userId !== actor.id || notification.read) {
+          continue;
+        }
+
+        batch.update(notificationRef, {
+          read: true,
+        });
+        updatedCount += 1;
+      }
+
+      await batch.commit();
+    }
+
+    return updatedCount;
+  },
+
   async getAnalytics() {
     let actor = await getCurrentSignedInProfile();
 
