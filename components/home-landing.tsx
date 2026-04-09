@@ -165,13 +165,37 @@ export function HomeLanding({ user }: { user: User | null }) {
                   </p>
                 </div>
 
-                <div className="relative mx-auto flex justify-center">
+                <div className="relative mx-auto hidden justify-center md:flex">
                   <div className="absolute inset-x-10 top-8 h-20 rounded-full bg-[#90cbf8]/25 blur-3xl" />
                   <img
                     src="/der.png"
                     alt="ExitPass app screenshot"
                     className="relative z-10 h-auto w-[min(82vw,350px)] drop-shadow-[0_35px_80px_rgba(0,0,0,0.55)] sm:w-[320px] lg:w-[360px]"
                   />
+                </div>
+
+                <div className="mx-auto flex w-full max-w-md flex-col gap-4 md:hidden">
+                  <div className="rounded-[1.75rem] border border-white/12 bg-white/[0.05] px-5 py-5 text-left backdrop-blur-sm">
+                    <p className="text-[0.68rem] font-bold uppercase tracking-[0.28em] text-[#90cbf8]">
+                      Exit Flow
+                    </p>
+                    <p className="mt-3 text-2xl font-light leading-tight text-white">
+                      Request, review, approve, and return with one shared record.
+                    </p>
+                    <p className="mt-3 text-sm leading-7 text-[#ccdcee]">
+                      Students, chaplaincy, hall admins, and security all stay in sync without paper slips or scattered updates.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    {['Request', 'Approve', 'Return'].map((step) => (
+                      <div
+                        key={step}
+                        className="rounded-[1.2rem] border border-[#5aacf0]/18 bg-[#5aacf0]/8 px-3 py-3 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#dcecff]"
+                      >
+                        {step}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="hidden items-start md:flex md:flex-col">
@@ -385,8 +409,23 @@ export function HomeLanding({ user }: { user: User | null }) {
           </section>
         </main>
 
-        <footer className="border-t border-white/8 bg-[#040c1a] px-4 py-14 sm:px-6 lg:px-8">
-          <div className="mx-auto flex max-w-6xl flex-col gap-10 lg:flex-row lg:items-start lg:justify-between">
+        <footer className="relative overflow-hidden border-t border-white/8 bg-[#040c1a] px-4 py-14 sm:px-6 lg:px-8">
+          <div className="pointer-events-none absolute inset-0">
+            <div
+              className="absolute left-[-4rem] top-8 h-32 w-32 rounded-full bg-[#90cbf8]/10 blur-3xl animate-pulse"
+              style={{ animationDuration: "6s" }}
+            />
+            <div
+              className="absolute right-[-2rem] top-12 h-40 w-40 rounded-full bg-white/8 blur-3xl animate-pulse"
+              style={{ animationDuration: "8s", animationDelay: "1.2s" }}
+            />
+            <div
+              className="absolute bottom-[-3rem] left-1/3 h-28 w-28 rounded-full bg-[#5aacf0]/10 blur-3xl animate-pulse"
+              style={{ animationDuration: "7s", animationDelay: "2.1s" }}
+            />
+          </div>
+
+          <div className="relative mx-auto flex max-w-6xl flex-col gap-10 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-sm">
               <p className="text-lg font-extrabold uppercase tracking-[0.24em] text-white">
                 Exit<span className="text-[#90cbf8]">Pass</span>
@@ -395,6 +434,21 @@ export function HomeLanding({ user }: { user: User | null }) {
                 Student exit management with clearer approvals, hostel-aware review, and security
                 verification in one platform.
               </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {[
+                  "Live approval trail",
+                  "Hostel-aware review",
+                  "QR verification",
+                ].map((item, index) => (
+                  <span
+                    key={item}
+                    className="rounded-full border border-[#5aacf0]/18 bg-white/[0.04] px-3 py-1.5 text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#dcecff] animate-pulse"
+                    style={{ animationDuration: "6s", animationDelay: `${index * 0.8}s` }}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className="grid gap-8 sm:grid-cols-3">
@@ -425,7 +479,7 @@ export function HomeLanding({ user }: { user: User | null }) {
             </div>
           </div>
 
-          <div className="mx-auto mt-12 flex max-w-6xl flex-col gap-2 border-t border-white/8 pt-7 text-sm text-[#7a94b0] sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative mx-auto mt-12 flex max-w-6xl flex-col gap-2 border-t border-white/8 pt-7 text-sm text-[#7a94b0] sm:flex-row sm:items-center sm:justify-between">
             <p>© 2026 ExitPass. All rights reserved.</p>
             <p>Built for traceable student movement.</p>
           </div>
