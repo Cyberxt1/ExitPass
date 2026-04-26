@@ -88,6 +88,7 @@ export default function DashboardPage() {
     [passHistory],
   );
 
+
   const approvedPasses = useMemo(
     () => countPassesByStatus(passHistory, 'approved'),
     [passHistory],

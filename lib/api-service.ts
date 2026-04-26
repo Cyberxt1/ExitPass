@@ -671,9 +671,8 @@ export const apiService = {
     const nextNameChangeCount = currentNameChangeCount + 1;
     const db = getFirebaseDb();
     const userRef = doc(db, "users", userId);
-    const batch = writeBatch(db);
 
-    batch.update(userRef, {
+    await updateDoc(userRef, {
       name,
       nameChangeCount: nextNameChangeCount,
       updatedAt: serverTimestamp(),
@@ -685,18 +684,26 @@ export const apiService = {
       const directorySnapshot = await getDoc(directoryRef);
 
       if (directorySnapshot.exists()) {
-        batch.set(
+        await setDoc(
           directoryRef,
           {
-            userId,
-            directoryId,
-            name,
+            ...buildStudentAccessDirectoryPayload({
+              uid: userId,
+              name,
+              email: actor.email,
+              matric: actor.matric,
+              department: actor.department,
+              faculty: actor.faculty,
+              level: actor.level,
+              hostel: actor.hostel,
+              room: actor.room,
+            }),
             updatedAt: serverTimestamp(),
           },
           { merge: true },
         );
       } else if (hasCompleteStudentDirectoryProfile(actor)) {
-        batch.set(directoryRef, {
+        await setDoc(directoryRef, {
           ...buildStudentAccessDirectoryPayload({
             uid: userId,
             name,
@@ -713,8 +720,6 @@ export const apiService = {
         });
       }
     }
-
-    await batch.commit();
 
     const currentAuthUser = getFirebaseAuth().currentUser;
 
@@ -803,8 +808,13 @@ export const apiService = {
       );
     }
 
-    if (currentUser.role === "hall_admin") {
-      if (!currentUser.hostel) {
+    const actor =
+      currentUser.role === "hall_admin"
+        ? await ensureHallAdminHostelAssignment(currentUser)
+        : currentUser;
+
+    if (actor.role === "hall_admin") {
+      if (!actor.hostel) {
         return [];
       }
 
@@ -815,7 +825,7 @@ export const apiService = {
           request.status === "pending" &&
           request.chaplainApproval &&
           request.student?.hostel &&
-          (await hostelsMatchForAccess(currentUser.hostel, request.student.hostel))
+          (await hostelsMatchForAccess(actor.hostel, request.student.hostel))
         ) {
           visibleRequests.push(request);
         }
