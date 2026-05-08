@@ -113,7 +113,7 @@ export function HomeLanding({ user }: { user: User | null }) {
               </span> */}
               <div>
                 <p className="text-sm font-extrabold uppercase tracking-[0.28em] text-white">ExitPass</p>
-                <p className="text-xs text-[#a8bcd4]">Request. Approve. Scan.</p>
+                <p className="text-xs text-[#a8bcd4]">Request, review, approve, and verify.</p>
               </div>
             </a>
 
@@ -177,13 +177,13 @@ export function HomeLanding({ user }: { user: User | null }) {
                 <div className="mx-auto flex w-full max-w-md flex-col gap-4 md:hidden">
                   <div className="rounded-[1.75rem] border border-white/12 bg-white/[0.05] px-5 py-5 text-left backdrop-blur-sm">
                     <p className="text-[0.68rem] font-bold uppercase tracking-[0.28em] text-[#90cbf8]">
-                      Exit Flow
+                      Exit flow
                     </p>
                     <p className="mt-3 text-2xl font-light leading-tight text-white">
-                      Request, review, approve, and return with one shared record.
+                      One shared record from student request to gate return.
                     </p>
                     <p className="mt-3 text-sm leading-7 text-[#ccdcee]">
-                      Students, chaplaincy, hall admins, and security all stay in sync without paper slips or scattered updates.
+                      Students, chaplaincy, hall admins, and security stay aligned without paper slips or scattered updates.
                     </p>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
@@ -308,7 +308,7 @@ export function HomeLanding({ user }: { user: User | null }) {
               <div className="max-w-2xl">
                 <Label>Platform Story</Label>
                 <h2 className="text-[clamp(2rem,4vw,3.3rem)] font-light leading-[1.08] text-white">
-                  Three roles. One system. A cleaner rhythm from request to return.
+                  One system for student requests, reviews, approvals, and return checks.
                 </h2>
               </div>
 
@@ -379,13 +379,12 @@ export function HomeLanding({ user }: { user: User | null }) {
 
           <section className="border-t border-white/8 bg-[linear-gradient(180deg,#081426,#040c1a)] px-4 py-32 text-center sm:px-6 lg:px-8">
             <div className="scroll-reveal mx-auto max-w-4xl">
-              <Label centered>Get Started Today</Label>
+              <Label centered>Open The Platform</Label>
               <h2 className="text-[clamp(2.4rem,5vw,4.4rem)] font-light leading-[1.05] text-white">
                 Ready to move student requests through a cleaner approval path?
               </h2>
               <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#ccdcee]">
-                Open the student access flow and manage exit requests with clearer statuses,
-                stronger records, and faster gate verification.
+                Start with student access, then move requests through approval and return with a cleaner audit trail.
               </p>
               <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
                 <Button
@@ -412,16 +411,13 @@ export function HomeLanding({ user }: { user: User | null }) {
         <footer className="relative overflow-hidden border-t border-white/8 bg-[#040c1a] px-4 py-14 sm:px-6 lg:px-8">
           <div className="pointer-events-none absolute inset-0">
             <div
-              className="absolute left-[-4rem] top-8 h-32 w-32 rounded-full bg-[#90cbf8]/10 blur-3xl animate-pulse"
-              style={{ animationDuration: "6s" }}
+              className="absolute left-[-4rem] top-8 h-32 w-32 rounded-full bg-[#90cbf8]/10 blur-3xl"
             />
             <div
-              className="absolute right-[-2rem] top-12 h-40 w-40 rounded-full bg-white/8 blur-3xl animate-pulse"
-              style={{ animationDuration: "8s", animationDelay: "1.2s" }}
+              className="absolute right-[-2rem] top-12 h-40 w-40 rounded-full bg-white/8 blur-3xl"
             />
             <div
-              className="absolute bottom-[-3rem] left-1/3 h-28 w-28 rounded-full bg-[#5aacf0]/10 blur-3xl animate-pulse"
-              style={{ animationDuration: "7s", animationDelay: "2.1s" }}
+              className="absolute bottom-[-3rem] left-1/3 h-28 w-28 rounded-full bg-[#5aacf0]/10 blur-3xl"
             />
           </div>
 
@@ -442,8 +438,7 @@ export function HomeLanding({ user }: { user: User | null }) {
                 ].map((item, index) => (
                   <span
                     key={item}
-                    className="rounded-full border border-[#5aacf0]/18 bg-white/[0.04] px-3 py-1.5 text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#dcecff] animate-pulse"
-                    style={{ animationDuration: "6s", animationDelay: `${index * 0.8}s` }}
+                    className="rounded-full border border-[#5aacf0]/18 bg-white/[0.04] px-3 py-1.5 text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#dcecff]"
                   >
                     {item}
                   </span>

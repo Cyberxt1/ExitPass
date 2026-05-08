@@ -22,8 +22,9 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 
-import { getFirebaseAuth, getFirebaseDb } from "./firebase/client";
+import { getFirebaseAuth, getFirebaseDb, getFirebaseFunctions } from "./firebase/client";
 import {
   firebasePublicConfig,
   getFirebaseConfigurationError,
@@ -166,6 +167,48 @@ function getStudentAccessDirectoryId(value: string) {
 
 function generateTemporaryPassword() {
   return `ExitPass!${Math.random().toString(16).slice(2, 10)}`;
+}
+
+type CloudFunctionError = {
+  code?: string;
+  message?: string;
+};
+
+function isCallableUnavailable(error: unknown) {
+  const code =
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof (error as CloudFunctionError).code === "string"
+      ? (error as CloudFunctionError).code
+      : "";
+
+  return [
+    "functions/not-found",
+    "functions/unimplemented",
+    "functions/unavailable",
+    "functions/internal",
+  ].includes(code || "");
+}
+
+function getCallableMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as CloudFunctionError).message === "string" &&
+    (error as CloudFunctionError).message
+  ) {
+    return (error as CloudFunctionError).message as string;
+  }
+
+  return fallback;
+}
+
+async function callCloudFunction<TInput, TOutput>(name: string, input: TInput) {
+  const callable = httpsCallable<TInput, TOutput>(getFirebaseFunctions(), name);
+  const result = await callable(input);
+  return result.data;
 }
 
 function normalizePassCode(value: string) {
@@ -532,6 +575,16 @@ export const apiService = {
       throw new Error("Student ID must be in the format 12/3456.");
     }
 
+    try {
+      return await callCloudFunction<{ matric: string }, StudentAccessLookup>("lookupStudentAccess", {
+        matric: normalizedMatric,
+      });
+    } catch (error) {
+      if (!isCallableUnavailable(error)) {
+        throw new Error(getCallableMessage(error, "We could not check that student ID."));
+      }
+    }
+
     const snapshot = await getDoc(
       doc(getFirebaseDb(), "studentAccessDirectory", getStudentAccessDirectoryId(normalizedMatric)),
     );
@@ -639,6 +692,48 @@ export const apiService = {
 
     const snapshot = await getDoc(userRef);
     return mapUser(snapshot.id, snapshot.data() || {});
+  },
+
+  async registerStudentAccount(input: StudentSignupInput) {
+    const normalizedEmail = normalizeEmail(input.email);
+    const normalizedMatric = normalizeMatric(input.matric);
+    const normalizedProfile = normalizeStudentProfileDetails({
+      faculty: input.faculty,
+      department: input.department,
+      level: input.level,
+      room: input.room,
+    });
+    const resolvedHostel = await resolveHostelByValue(input.hostel);
+
+    if (!resolvedHostel) {
+      throw new Error("Select a hostel created by the super admin.");
+    }
+
+    try {
+      const result = await callCloudFunction<
+        StudentSignupInput,
+        { user: Record<string, unknown> }
+      >("createStudentAccount", {
+        ...input,
+        email: normalizedEmail,
+        matric: normalizedMatric,
+        faculty: normalizedProfile.faculty,
+        department: normalizedProfile.department,
+        hostel: resolvedHostel.name,
+        level: normalizedProfile.level,
+        room: normalizedProfile.room,
+      });
+
+      return mapUser(result.user.id as string, result.user);
+    } catch (error) {
+      if (!isCallableUnavailable(error)) {
+        throw new Error(getCallableMessage(error, "Unable to create your account."));
+      }
+    }
+
+    throw new Error(
+      "Student account setup is not available right now. Deploy the latest Firebase Functions and try again.",
+    );
   },
 
   async updateStudentProfile(
@@ -1438,6 +1533,24 @@ export const apiService = {
       throw new Error("Valid name, email, and password are required.");
     }
 
+    try {
+      const result = await callCloudFunction<
+        RegisterStaffInput,
+        { user: Record<string, unknown> }
+      >("registerStaffAccount", {
+        ...input,
+        email: normalizedEmail,
+        name,
+        token,
+      });
+
+      return mapUser(result.user.id as string, result.user);
+    } catch (error) {
+      if (!isCallableUnavailable(error)) {
+        throw new Error(getCallableMessage(error, "Unable to create the staff account."));
+      }
+    }
+
     let role: Exclude<User["role"], "student"> | undefined =
       getPrivilegedRoleByEmail(normalizedEmail) || directRole;
     let hostel = "";
@@ -2025,6 +2138,26 @@ export const apiService = {
 
   async validateStudentSignupEmail(email: string) {
     const normalizedEmail = normalizeEmail(email);
+
+    try {
+      await callCloudFunction<{ email: string }, { allowed: boolean }>("validateStudentSignupEmail", {
+        email: normalizedEmail,
+      });
+
+      return {
+        allowed: true,
+      };
+    } catch (error) {
+      if (!isCallableUnavailable(error)) {
+        return {
+          allowed: false,
+          message: getCallableMessage(
+            error,
+            "That email cannot be used for student access right now.",
+          ),
+        };
+      }
+    }
 
     if (
       normalizedEmail === staffPortals.admin.leadEmail ||

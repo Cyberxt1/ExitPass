@@ -1101,8 +1101,8 @@ export default function AdminDashboardPage() {
                           <div>
                             <p className="text-base font-semibold text-slate-950">{account.name}</p>
                             <p className="text-sm text-slate-500">
-                              {account.email} â€¢ {getRoleLabel(account.role)}
-                              {account.hostel ? ` â€¢ ${account.hostel}` : ''}
+                              {account.email} - {getRoleLabel(account.role)}
+                              {account.hostel ? ` - ${account.hostel}` : ''}
                             </p>
                             <p className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-400">
                               Requested {formatDateTime(account.createdAt)}
@@ -2278,7 +2278,7 @@ export default function AdminDashboardPage() {
                       <div>
                         <p className="font-medium text-slate-950">{admin.name}</p>
                         <p className="text-sm text-slate-500">
-                          {admin.email} â€¢ {admin.role.replace('_', ' ')}
+                          {admin.email} - {admin.role.replace('_', ' ')}
                         </p>
                       </div>
                       {user?.role === 'super_admin' && user.id !== admin.id && (
@@ -2321,8 +2321,8 @@ export default function AdminDashboardPage() {
                         <div key={invite.id} className="rounded-2xl border border-blue-100/80 bg-white/80 px-4 py-3">
                           <p className="font-medium text-slate-950">{invite.email}</p>
                           <p className="text-sm text-slate-500">
-                            {invite.role.replace('_', ' ')} â€¢ {invite.status}
-                            {invite.hostel ? ` â€¢ ${invite.hostel}` : ''}
+                            {invite.role.replace('_', ' ')} - {invite.status}
+                            {invite.hostel ? ` - ${invite.hostel}` : ''}
                           </p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Button variant="outline" size="sm" className="rounded-full border-white/80 bg-white/80 hover:bg-white" onClick={() => handleCopy(inviteUrl)}>

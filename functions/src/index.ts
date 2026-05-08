@@ -127,6 +127,66 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, '');
 }
 
+function isValidStudentMatric(value: string) {
+  return /^[0-9]{2}\/[0-9]{4}$/.test(value);
+}
+
+function isValidStudentLevel(value: string) {
+  return ['100', '200', '300', '400', '500'].includes(value);
+}
+
+function normalizeRoom(value: string) {
+  return value.trim().replace(/\s+/g, '').toUpperCase();
+}
+
+function isValidRoomCode(value: string) {
+  return /^[A-L](?:[1-9]|1\d|2[0-5])$/.test(normalizeRoom(value));
+}
+
+const FACULTY_DEPARTMENTS: Record<string, string[]> = {
+  FOS: [
+    'Biochemistry',
+    'Biology',
+    'Chemistry',
+    'Computer Science',
+    'Mathematics',
+    'Microbiology',
+    'Physics',
+    'Statistics',
+  ],
+  FBMS: ['Anatomy', 'Medical Laboratory Science', 'Nursing Science', 'Physiology', 'Public Health'],
+  FBSS: [
+    'Accounting',
+    'Business Administration',
+    'Economics',
+    'International Relations',
+    'Mass Communication',
+    'Political Science',
+    'Sociology',
+  ],
+  FOE: [
+    'Chemical Engineering',
+    'Civil Engineering',
+    'Computer Engineering',
+    'Electrical and Electronics Engineering',
+    'Mechanical Engineering',
+    'Mechatronics Engineering',
+  ],
+  FOA: [
+    'English and Literary Studies',
+    'Fine Arts',
+    'History and International Studies',
+    'Music',
+    'Philosophy',
+    'Theatre Arts',
+  ],
+  FOL: ['Law'],
+};
+
+function isValidFacultyDepartment(faculty: string, department: string) {
+  return FACULTY_DEPARTMENTS[faculty]?.includes(department) || false;
+}
+
 function parseDate(value: unknown, fieldName: string) {
   if (typeof value !== 'string') {
     throw new HttpsError('invalid-argument', `${fieldName} must be an ISO date string.`);
@@ -507,10 +567,10 @@ export const createStudentAccount = onCall(callableOptions, async (request) => {
   const matric = String(payload.matric || '').trim();
   const matricNormalized = normalizeMatric(matric);
   const department = String(payload.department || '').trim();
-  const faculty = String(payload.faculty || '').trim();
+  const faculty = String(payload.faculty || '').trim().toUpperCase();
   const level = String(payload.level || '').trim();
   const hostel = String(payload.hostel || '').trim();
-  const room = String(payload.room || '').trim();
+  const room = normalizeRoom(String(payload.room || ''));
   const phone = String(payload.phone || '').trim();
   const guardianPhone = String(payload.guardianPhone || '').trim();
   const password = String(payload.password || '');
@@ -521,6 +581,22 @@ export const createStudentAccount = onCall(callableOptions, async (request) => {
 
   if (password.length < 8) {
     throw new HttpsError('invalid-argument', 'Password must be at least 8 characters long.');
+  }
+
+  if (!isValidStudentMatric(matricNormalized)) {
+    throw new HttpsError('invalid-argument', 'Student ID must be in the format 12/3456.');
+  }
+
+  if (!isValidStudentLevel(level)) {
+    throw new HttpsError('invalid-argument', 'Select a valid level between 100 and 500.');
+  }
+
+  if (!isValidFacultyDepartment(faculty, department)) {
+    throw new HttpsError('invalid-argument', 'Select a department that matches the chosen faculty.');
+  }
+
+  if (!isValidRoomCode(room)) {
+    throw new HttpsError('invalid-argument', 'Room number must be a letter A to L followed by a number from 1 to 25.');
   }
 
   const existingStudent = await findStudentByMatric(matricNormalized);
@@ -542,13 +618,14 @@ export const createStudentAccount = onCall(callableOptions, async (request) => {
 
   const studentRecord = {
     name,
+    nameChangeCount: 0,
     email,
     matric: matricNormalized,
     matricNormalized,
     role: 'student',
     department,
     faculty,
-    level,
+    level: Number(level),
     hostel,
     room,
     phone,
@@ -560,6 +637,25 @@ export const createStudentAccount = onCall(callableOptions, async (request) => {
   };
 
   await db.collection('users').doc(createdUser.uid).set(studentRecord);
+  await db
+    .collection('studentAccessDirectory')
+    .doc(matricNormalized.replace('/', ''))
+    .set({
+      directoryId: matricNormalized.replace('/', ''),
+      userId: createdUser.uid,
+      role: 'student',
+      name,
+      email,
+      matric: matricNormalized,
+      matricNormalized,
+      department,
+      faculty,
+      level: Number(level),
+      hostel,
+      room,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   await createNotification(
     createdUser.uid,
     'Welcome to ExitPass',

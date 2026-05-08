@@ -49,7 +49,7 @@ export function MarketingShell({
                 <p className="text-sm font-semibold tracking-[0.24em] text-slate-700 uppercase dark:text-[#d8e7fa]">
                   ExitPass
                 </p>
-                <p className="text-xs text-slate-500 dark:text-[#9eb6d3]">White, black, and blue clarity</p>
+                <p className="text-xs text-slate-500 dark:text-[#9eb6d3]">Student movement, approvals, and gate records in one place</p>
               </div>
             </Link>
 
@@ -98,7 +98,7 @@ export function MarketingShell({
 
         <footer className="border-t border-blue-100/70 bg-white/72 backdrop-blur-xl dark:border-white/10 dark:bg-[#071221]/72">
           <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 dark:text-[#a8bcd4] sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-            <p>ExitPass keeps student movement bright, fast, and traceable.</p>
+            <p>ExitPass keeps requests, approvals, and returns clear and accountable.</p>
             <div className="flex flex-wrap gap-4">
               <Link href="/about" className="hover:text-slate-950 dark:hover:text-white">About</Link>
               <Link href="/faqs" className="hover:text-slate-950 dark:hover:text-white">FAQs</Link>

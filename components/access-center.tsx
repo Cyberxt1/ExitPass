@@ -794,7 +794,7 @@ export function AccessCenter() {
             ) : null}
 
             <div className="border-t border-slate-200 pt-5 text-xs uppercase tracking-[0.22em] text-slate-400">
-              Dedicated student access form
+              Student access portal
             </div>
           </CardContent>
         </Card>

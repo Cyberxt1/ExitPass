@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   User as FirebaseUser,
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -29,6 +30,7 @@ import {
 } from "firebase/firestore";
 
 import { getFirebaseAuth, getFirebaseDb } from "./firebase/client";
+import { apiService } from "./api-service";
 import {
   firebaseUseAuthEmulator,
   getFirebaseConfigurationError,
@@ -518,6 +520,13 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
       return pendingFallback;
     }
 
+    if ((tokenRole || "student") === "student") {
+      await signOut(getFirebaseAuth());
+      throw new Error(
+        "Your student profile is incomplete. Please create the account again or contact support.",
+      );
+    }
+
     return {
       id: firebaseUser.uid,
       name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
@@ -658,57 +667,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setError(null);
 
         try {
-          const normalizedEmail = input.email.trim().toLowerCase();
-          const normalizedMatric = normalizeMatric(input.matric);
-          const normalizedProfile = normalizeStudentProfileDetails({
-            faculty: input.faculty,
-            department: input.department,
-            level: input.level,
-            room: input.room,
+          const normalizedEmail = normalizeEmail(input.email);
+
+          await apiService.registerStudentAccount({
+            ...input,
+            email: normalizedEmail,
           });
-          const hostelName = await resolveStudentHostelName(input.hostel);
 
-          if (!isValidMatric(normalizedMatric)) {
-            throw new Error("Student ID must be in the format 12/3456.");
-          }
-
-          await validateStudentSignupEmail(normalizedEmail);
-
-          const credentials = await createUserWithEmailAndPassword(
+          const credentials = await signInWithEmailAndPassword(
             getFirebaseAuth(),
             normalizedEmail,
             input.password,
           );
-
-          await updateProfile(credentials.user, {
-            displayName: input.name,
-          });
-
-          const pendingProfile = buildPendingProfile(credentials.user.uid, {
-            ...input,
-            department: normalizedProfile.department,
-            faculty: normalizedProfile.faculty,
-            hostel: hostelName,
-            level: normalizedProfile.level,
-            matric: normalizedMatric,
-            room: normalizedProfile.room,
-          });
-          pendingProfile.email = normalizedEmail;
-          writePendingProfile(pendingProfile);
           await credentials.user.getIdToken(true);
-
-          try {
-            await writeStudentProfile(pendingProfile);
-            clearPendingProfile(credentials.user.uid);
-          } catch (profileError) {
-            console.error("Student profile creation failed, using pending fallback", profileError);
-          }
 
           const profile = await loadUserProfile(credentials.user);
           setFirebaseUser(credentials.user);
           setUser(profile);
           return profile;
         } catch (nextError) {
+          const fallbackAllowed =
+            nextError instanceof Error &&
+            nextError.message.includes("Deploy the latest Firebase Functions");
+
+          if (fallbackAllowed) {
+            try {
+              const normalizedEmail = input.email.trim().toLowerCase();
+              const normalizedMatric = normalizeMatric(input.matric);
+              const normalizedProfile = normalizeStudentProfileDetails({
+                faculty: input.faculty,
+                department: input.department,
+                level: input.level,
+                room: input.room,
+              });
+              const hostelName = await resolveStudentHostelName(input.hostel);
+
+              if (!isValidMatric(normalizedMatric)) {
+                throw new Error("Student ID must be in the format 12/3456.");
+              }
+
+              await validateStudentSignupEmail(normalizedEmail);
+
+              const credentials = await createUserWithEmailAndPassword(
+                getFirebaseAuth(),
+                normalizedEmail,
+                input.password,
+              );
+
+              await updateProfile(credentials.user, {
+                displayName: input.name,
+              });
+
+              const pendingProfile = buildPendingProfile(credentials.user.uid, {
+                ...input,
+                department: normalizedProfile.department,
+                faculty: normalizedProfile.faculty,
+                hostel: hostelName,
+                level: normalizedProfile.level,
+                matric: normalizedMatric,
+                room: normalizedProfile.room,
+              });
+              pendingProfile.email = normalizedEmail;
+              writePendingProfile(pendingProfile);
+              await credentials.user.getIdToken(true);
+              await writeStudentProfile(pendingProfile);
+              clearPendingProfile(credentials.user.uid);
+
+              const profile = await loadUserProfile(credentials.user);
+              setFirebaseUser(credentials.user);
+              setUser(profile);
+              return profile;
+            } catch (fallbackError) {
+              const authUser = getFirebaseAuth().currentUser;
+
+              if (authUser) {
+                await deleteUser(authUser).catch(() => signOut(getFirebaseAuth()).catch(() => undefined));
+              }
+
+              const message = getReadableAuthError(
+                fallbackError,
+                "Unable to create your account.",
+              );
+              setError(message);
+              throw new Error(message);
+            }
+          }
+
           const message = getReadableAuthError(nextError, "Unable to create your account.");
           setError(message);
           throw new Error(message);
