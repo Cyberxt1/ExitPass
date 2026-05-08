@@ -401,6 +401,25 @@
           );
       }
 
+      function canStudentCancelOwnPassRequest() {
+        return isSignedIn()
+          && resource.data.studentId == request.auth.uid
+          && immutablePassRequestFieldsUnchanged()
+          && resource.data.status in ['chaplaincy_required', 'pending']
+          && request.resource.data.status == 'cancelled'
+          && request.resource.data.currentStage == 'completed'
+          && request.resource.data.rejectionReason == 'Cancelled by student.'
+          && request.resource.data.chaplainApproval == resource.data.chaplainApproval
+          && request.resource.data.hallAdminApproval == resource.data.hallAdminApproval
+          && request.resource.data.approvedAt == resource.data.approvedAt
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status',
+            'currentStage',
+            'rejectionReason',
+            'updatedAt'
+          ]);
+      }
+
       function canSelfAssignHallAdminHostel(userId) {
         return isOwner(userId)
           && resource.data.role == 'hall_admin'
@@ -473,7 +492,9 @@
       match /passRequests/{requestId} {
         allow read: if isSignedIn() && (resource.data.studentId == request.auth.uid || isPrivileged());
         allow create: if canCreateStudentPassRequest();
-        allow update: if canReviewAtChaplaincyStage() || canReviewAtHallStage();
+        allow update: if canReviewAtChaplaincyStage()
+          || canReviewAtHallStage()
+          || canStudentCancelOwnPassRequest();
         allow delete: if false;
       }
 

@@ -252,7 +252,7 @@
 
   .dark .brand-cta {
     background: linear-gradient(135deg, #90cbf8, #5aacf0 45%, #102040);
-    color: #040c1a;
+    color: white;
     box-shadow: 0 22px 48px -26px rgba(90, 172, 240, 0.58);
   }
 
