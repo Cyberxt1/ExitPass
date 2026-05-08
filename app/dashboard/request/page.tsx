@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 
 import { DashboardShell } from '@/components/dashboard-shell';
-import { PassPreviewPhone } from '@/components/pass-preview-phone';
 import {
   PageHero,
   SectionCard,
@@ -63,20 +62,6 @@ function toTimeInputValue(value?: string | null) {
   }
 
   return new Date(value).toISOString().slice(11, 16);
-}
-
-function formatPreviewDateTime(date: Date) {
-  if (Number.isNaN(date.getTime())) {
-    return 'Choose time';
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
 }
 
 function getOpenBookingCopy(pass: Pass) {
@@ -189,61 +174,32 @@ export default function RequestPassPage() {
     return '';
   }, [departureDateTime, formData.destination, formData.reason, formData.type, returnDateTime, selectedHolidayId]);
 
-  const previewSummary = useMemo(() => {
-    const passLabel = getPassTypeLabel(formData.type);
+  const requestSummary = useMemo(() => {
     const destination = selectedHoliday ? selectedHoliday.title : formData.destination.trim();
 
-    if (!destination) {
-      return `${passLabel} request waiting for destination and trip details.`;
-    }
-
-    return `${passLabel} request for ${destination}.`;
-  }, [formData.destination, formData.type, selectedHoliday]);
-
-  const previewRows = useMemo(
-    () => [
+    return [
+      {
+        label: 'Pass type',
+        value: getPassTypeLabel(formData.type),
+      },
       {
         label: 'Destination',
-        value: selectedHoliday ? selectedHoliday.title : formData.destination.trim() || 'Add details',
+        value: destination || 'Not set',
       },
       {
         label: 'Departure',
         value: selectedHoliday
-          ? formatPreviewDateTime(new Date(selectedHoliday.departureDate))
-          : formatPreviewDateTime(departureDateTime),
+          ? formatDateTime(selectedHoliday.departureDate)
+          : formatDateTime(departureDateTime.toISOString()),
       },
       {
         label: 'Return',
         value: selectedHoliday
-          ? formatPreviewDateTime(new Date(selectedHoliday.expectedReturnDate))
-          : formatPreviewDateTime(returnDateTime),
+          ? formatDateTime(selectedHoliday.expectedReturnDate)
+          : formatDateTime(returnDateTime.toISOString()),
       },
-      {
-        label: 'Status',
-        value: validationMessage ? 'Draft' : 'Ready to review',
-        accent: !validationMessage,
-      },
-    ],
-    [departureDateTime, formData.destination, returnDateTime, selectedHoliday, validationMessage],
-  );
-
-  const previewStages = useMemo(
-    () => [
-      {
-        title: 'Chaplaincy',
-        text: formData.reason.trim()
-          ? 'First review sees your destination, timing, and reason together.'
-          : 'First review starts once you add a clear reason for movement.',
-      },
-      {
-        title: 'Hall Admin',
-        text: user?.hostel
-          ? `${user.hostel} review completes the request after chaplaincy approval.`
-          : 'Hostel review completes the request after chaplaincy approval.',
-      },
-    ],
-    [formData.reason, user?.hostel],
-  );
+    ];
+  }, [departureDateTime, formData.destination, formData.type, returnDateTime, selectedHoliday]);
 
   const formLocked = isSubmitting || Boolean(openBooking);
 
@@ -344,7 +300,7 @@ export default function RequestPassPage() {
           }
         />
 
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <SectionCard
             title="Pass details"
             description="Choose the type and fill in the trip details."
@@ -591,39 +547,42 @@ export default function RequestPassPage() {
 
           <div className="space-y-6">
             <SectionCard
-              title="Live preview"
-              description="This is the same request card reviewers will recognize."
+              title="Request summary"
+              description="A simple check before you submit."
             >
-              <div className="space-y-5">
-                <PassPreviewPhone
-                  eyebrow={user?.hostel || 'ExitPass'}
-                  title="Request Preview"
-                  summary={previewSummary}
-                  badge={validationMessage ? 'Draft' : 'Ready'}
-                  rows={previewRows}
-                  stages={previewStages}
-                />
-
-                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                        Selected pass
-                      </p>
-                      <p className="mt-2 text-xl font-semibold text-slate-950">
-                        {getPassTypeLabel(formData.type)}
-                      </p>
-                    </div>
-                    <StatusBadge
-                      label={validationMessage ? 'Draft' : 'Ready to review'}
-                      tone={
-                        validationMessage
-                          ? 'border-amber-200 bg-amber-50 text-amber-800'
-                          : 'border-blue-200 bg-blue-50 text-blue-800'
-                      }
-                    />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">State</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-950">
+                      {validationMessage ? 'Draft' : 'Ready to review'}
+                    </p>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                  <StatusBadge
+                    label={validationMessage ? 'Needs details' : 'Ready'}
+                    tone={
+                      validationMessage
+                        ? 'border-amber-200 bg-amber-50 text-amber-800'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    }
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  {requestSummary.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                    >
+                      <p className="text-sm text-slate-500">{item.label}</p>
+                      <p className="text-right text-sm font-medium text-slate-900">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Reason</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
                     {formData.reason || 'Add a clear reason so chaplaincy and hall admin can review faster.'}
                   </p>
                 </div>

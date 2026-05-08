@@ -1069,7 +1069,7 @@ export default function AdminDashboardPage() {
             <TabsTrigger
               key={tab}
               value={tab}
-              className="rounded-[1rem] text-xs data-[state=active]:bg-slate-950 data-[state=active]:text-white sm:text-sm"
+              className="rounded-[1rem] text-xs sm:text-sm"
             >
               {TAB_LABELS[tab]}
             </TabsTrigger>

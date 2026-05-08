@@ -244,21 +244,21 @@ export default function SecurityScannerPage() {
           <TabsList className="brand-panel grid h-auto w-full grid-cols-3 gap-2 rounded-[1.5rem] border p-2">
             <TabsTrigger
               value="history"
-              className="rounded-[1rem] text-xs data-[state=active]:bg-slate-950 data-[state=active]:text-white sm:text-sm"
+              className="rounded-[1rem] text-xs sm:text-sm"
             >
               <History className="mr-2 h-4 w-4" />
               History
             </TabsTrigger>
             <TabsTrigger
               value="overdue"
-              className="rounded-[1rem] text-xs data-[state=active]:bg-slate-950 data-[state=active]:text-white sm:text-sm"
+              className="rounded-[1rem] text-xs sm:text-sm"
             >
               <Clock3 className="mr-2 h-4 w-4" />
               Overdue
             </TabsTrigger>
             <TabsTrigger
               value="updates"
-              className="rounded-[1rem] text-xs data-[state=active]:bg-slate-950 data-[state=active]:text-white sm:text-sm"
+              className="rounded-[1rem] text-xs sm:text-sm"
             >
               <Bell className="mr-2 h-4 w-4" />
               Updates
