@@ -10,6 +10,7 @@ import {
   KeyRound,
   Loader2,
   Plus,
+  RefreshCcw,
   Send,
   ShieldCheck,
   Trash2,
@@ -50,7 +51,9 @@ import type {
   CreateStaffInviteInput,
   Holiday,
   Hostel,
+  Pass,
   PassRequest,
+  ScanLog,
   StaffInvite,
   StudentSignupInput,
   StudentDetails,
@@ -167,6 +170,20 @@ type StudentFilterState = {
   level: string;
 };
 
+type RequestFilterState = {
+  search: string;
+};
+
+type GovernanceUserFilterState = {
+  search: string;
+  role: string;
+  status: string;
+};
+
+type AnnouncementFilterState = {
+  search: string;
+};
+
 const INITIAL_STUDENT_FORM: StudentAccountFormState = {
   name: '',
   email: '',
@@ -194,6 +211,20 @@ const INITIAL_STUDENT_FILTERS: StudentFilterState = {
   level: 'all',
 };
 
+const INITIAL_REQUEST_FILTERS: RequestFilterState = {
+  search: '',
+};
+
+const INITIAL_GOVERNANCE_USER_FILTERS: GovernanceUserFilterState = {
+  search: '',
+  role: 'all',
+  status: 'all',
+};
+
+const INITIAL_ANNOUNCEMENT_FILTERS: AnnouncementFilterState = {
+  search: '',
+};
+
 function getUniqueValues(values: Array<string | number | undefined>) {
   return [...new Set(values.filter((value): value is string | number => Boolean(value)))].sort((left, right) =>
     String(left).localeCompare(String(right)),
@@ -218,6 +249,10 @@ export default function AdminDashboardPage() {
   const [invites, setInvites] = useState<StaffInvite[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allRequests, setAllRequests] = useState<PassRequest[]>([]);
+  const [overduePasses, setOverduePasses] = useState<Pass[]>([]);
+  const [scanHistory, setScanHistory] = useState<ScanLog[]>([]);
   const [createdInviteUrl, setCreatedInviteUrl] = useState('');
   const [hostelName, setHostelName] = useState('');
   const [holidayForm, setHolidayForm] = useState({
@@ -227,6 +262,7 @@ export default function AdminDashboardPage() {
     expectedReturnDate: todayDate(),
   });
   const [announcement, setAnnouncement] = useState({ title: '', message: '' });
+  const [announcementRecipientRole, setAnnouncementRecipientRole] = useState<'all' | User['role']>('all');
   const [inviteForm, setInviteForm] = useState<CreateStaffInviteInput>({
     email: '',
     name: '',
@@ -257,6 +293,13 @@ export default function AdminDashboardPage() {
   const [actionMessage, setActionMessage] = useState('');
   const [actionError, setActionError] = useState('');
   const [studentFilters, setStudentFilters] = useState<StudentFilterState>(INITIAL_STUDENT_FILTERS);
+  const [requestFilters, setRequestFilters] = useState<RequestFilterState>(INITIAL_REQUEST_FILTERS);
+  const [governanceUserFilters, setGovernanceUserFilters] = useState<GovernanceUserFilterState>(
+    INITIAL_GOVERNANCE_USER_FILTERS,
+  );
+  const [announcementFilters, setAnnouncementFilters] = useState<AnnouncementFilterState>(
+    INITIAL_ANNOUNCEMENT_FILTERS,
+  );
 
   const canManageApprovals = ['hall_admin', 'chaplaincy'].includes(user?.role || '');
   const canManageStudents = ['hall_admin', 'super_admin'].includes(user?.role || '');
@@ -353,6 +396,84 @@ export default function AdminDashboardPage() {
       return true;
     });
   }, [studentFilters, students]);
+  const filteredRequests = useMemo(() => {
+    const searchTerm = requestFilters.search.trim().toLowerCase();
+
+    if (!searchTerm) {
+      return pendingRequests;
+    }
+
+    return pendingRequests.filter((request) =>
+      [
+        request.student?.name,
+        request.student?.matric,
+        request.student?.hostel,
+        request.destination,
+        request.reason,
+        request.type,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(searchTerm),
+    );
+  }, [pendingRequests, requestFilters.search]);
+  const filteredPlatformUsers = useMemo(() => {
+    const searchTerm = governanceUserFilters.search.trim().toLowerCase();
+
+    return allUsers.filter((platformUser) => {
+      const searchableText = [
+        platformUser.name,
+        platformUser.email,
+        platformUser.matric,
+        platformUser.hostel,
+        platformUser.room,
+        platformUser.role,
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      if (searchTerm && !searchableText.includes(searchTerm)) {
+        return false;
+      }
+
+      if (governanceUserFilters.role !== 'all' && platformUser.role !== governanceUserFilters.role) {
+        return false;
+      }
+
+      if (governanceUserFilters.status === 'disabled' && !platformUser.disabled) {
+        return false;
+      }
+
+      if (governanceUserFilters.status === 'active' && platformUser.disabled) {
+        return false;
+      }
+
+      if (governanceUserFilters.status === 'pending' && platformUser.approvalStatus !== 'pending') {
+        return false;
+      }
+
+      return true;
+    });
+  }, [allUsers, governanceUserFilters]);
+  const filteredAnnouncements = useMemo(() => {
+    const searchTerm = announcementFilters.search.trim().toLowerCase();
+
+    if (!searchTerm) {
+      return announcements;
+    }
+
+    return announcements.filter((item) =>
+      [item.title, item.message, item.recipientRole || 'all'].join(' ').toLowerCase().includes(searchTerm),
+    );
+  }, [announcementFilters.search, announcements]);
+  const staffCount = useMemo(
+    () => allUsers.filter((platformUser) => platformUser.role !== 'student').length,
+    [allUsers],
+  );
+  const activeInviteCount = useMemo(
+    () => invites.filter((invite) => invite.status === 'pending').length,
+    [invites],
+  );
   const hallAdminStatsRows = useMemo(
     () =>
       analytics
@@ -527,13 +648,28 @@ export default function AdminDashboardPage() {
   const loadGovernance = async () => {
     setGovernanceLoading(true);
     try {
-      const [nextPendingStaff, nextAdmins, nextStudents, nextHostels, nextInvites, nextHolidays] = await Promise.all([
+      const [
+        nextPendingStaff,
+        nextAdmins,
+        nextStudents,
+        nextHostels,
+        nextInvites,
+        nextHolidays,
+        nextAllUsers,
+        nextAllRequests,
+        nextOverduePasses,
+        nextScanHistory,
+      ] = await Promise.all([
         apiService.getPendingStaffApprovals(),
         apiService.getAdmins(),
         apiService.getAllStudents(),
         apiService.getHostels(),
         apiService.getStaffInvites(),
         apiService.getHolidays(),
+        apiService.getAllUsers(),
+        apiService.getPassRequests(),
+        apiService.getOverduePasses(),
+        apiService.getScanHistory(20),
       ]);
       setPendingStaffApprovals(nextPendingStaff);
       setAdmins(nextAdmins);
@@ -541,6 +677,10 @@ export default function AdminDashboardPage() {
       setHostels(nextHostels);
       setInvites(nextInvites);
       setHolidays(nextHolidays);
+      setAllUsers(nextAllUsers);
+      setAllRequests(nextAllRequests);
+      setOverduePasses(nextOverduePasses);
+      setScanHistory(nextScanHistory);
     } finally {
       setGovernanceLoading(false);
     }
@@ -670,6 +810,19 @@ export default function AdminDashboardPage() {
     }
 
     await Promise.all([loadStaff(), loadStudents()]);
+  };
+
+  const handleRefreshGovernance = async () => {
+    await withActionFeedback(async () => {
+      await loadGovernance();
+    }, 'Governance data refreshed.');
+  };
+
+  const handleSyncStudentDirectory = async () => {
+    await withActionFeedback(async () => {
+      await apiService.syncStudentAccessDirectory();
+      await loadGovernance();
+    }, 'Student access directory synced.');
   };
 
   const handleApproveStaffAccount = async (userId: string) => {
@@ -810,6 +963,18 @@ export default function AdminDashboardPage() {
     setProcessingId(null);
   };
 
+  const handleToggleUserStatus = async (targetUser: User) => {
+    setProcessingId(targetUser.id);
+    await withActionFeedback(async () => {
+      await apiService.updateAdmin(targetUser.id, { disabled: !targetUser.disabled });
+      if (selectedStudent?.id === targetUser.id) {
+        setSelectedStudent((current) => (current ? { ...current, disabled: !targetUser.disabled } : current));
+      }
+      await loadGovernance();
+    }, targetUser.disabled ? 'User account re-enabled.' : 'User account disabled.');
+    setProcessingId(null);
+  };
+
   const handleResetUserPassword = async (targetUser: User) => {
     setProcessingId(targetUser.id);
     clearNotices();
@@ -829,8 +994,13 @@ export default function AdminDashboardPage() {
   const handleSendAnnouncement = async () => {
     if (!announcement.title || !announcement.message) return;
     await withActionFeedback(async () => {
-      await apiService.sendAnnouncement(announcement.title.trim(), announcement.message.trim());
+      await apiService.sendAnnouncement(
+        announcement.title.trim(),
+        announcement.message.trim(),
+        announcementRecipientRole === 'all' ? undefined : announcementRecipientRole,
+      );
       setAnnouncement({ title: '', message: '' });
+      setAnnouncementRecipientRole('all');
       await loadAnnouncements();
     }, 'Announcement sent.');
   };
@@ -983,6 +1153,208 @@ export default function AdminDashboardPage() {
                   ) : (
                     <p className="text-sm text-slate-500">No staff accounts are waiting for approval right now.</p>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card className="brand-panel border">
+                <CardHeader>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <CardTitle className="text-lg text-slate-950">Super admin control center</CardTitle>
+                      <CardDescription className="text-slate-500">
+                        Platform-wide controls, monitors, and recovery actions in one place.
+                      </CardDescription>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className="rounded-full border-white/80 bg-white/80 hover:bg-white"
+                        onClick={() => void handleRefreshGovernance()}
+                      >
+                        <RefreshCcw className="mr-2 h-4 w-4" />
+                        Refresh data
+                      </Button>
+                      <Button onClick={() => void handleSyncStudentDirectory()} className="brand-cta rounded-full border-0">
+                        <Users className="mr-2 h-4 w-4" />
+                        Sync student directory
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <MetricMiniCard label="All users" value={allUsers.length} />
+                    <MetricMiniCard label="Staff" value={staffCount} />
+                    <MetricMiniCard label="All requests" value={allRequests.length} />
+                    <MetricMiniCard label="Overdue passes" value={overduePasses.length} />
+                    <MetricMiniCard label="Active invites" value={activeInviteCount} />
+                  </div>
+
+                  <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+                    <div className="space-y-4">
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <Input
+                          value={governanceUserFilters.search}
+                          onChange={(event) =>
+                            setGovernanceUserFilters((current) => ({ ...current, search: event.target.value }))
+                          }
+                          placeholder="Search name, email, matric, hostel..."
+                          className="border-slate-200 bg-white/85 md:col-span-2"
+                        />
+                        <select
+                          value={governanceUserFilters.role}
+                          onChange={(event) =>
+                            setGovernanceUserFilters((current) => ({ ...current, role: event.target.value }))
+                          }
+                          className="h-10 rounded-xl border border-slate-200 bg-white/85 px-3 text-sm text-slate-700"
+                        >
+                          <option value="all">All roles</option>
+                          <option value="student">Student</option>
+                          <option value="hall_admin">Hall Admin</option>
+                          <option value="chaplaincy">Chaplaincy</option>
+                          <option value="security">Security</option>
+                          <option value="super_admin">Super Admin</option>
+                        </select>
+                        <select
+                          value={governanceUserFilters.status}
+                          onChange={(event) =>
+                            setGovernanceUserFilters((current) => ({ ...current, status: event.target.value }))
+                          }
+                          className="h-10 rounded-xl border border-slate-200 bg-white/85 px-3 text-sm text-slate-700"
+                        >
+                          <option value="all">All statuses</option>
+                          <option value="active">Active</option>
+                          <option value="disabled">Disabled</option>
+                          <option value="pending">Pending approval</option>
+                        </select>
+                      </div>
+
+                      <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+                        {filteredPlatformUsers.map((platformUser) => (
+                          <div
+                            key={platformUser.id}
+                            className="rounded-[1.2rem] border border-blue-100/80 bg-white/80 px-4 py-3"
+                          >
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-semibold text-slate-950 sm:text-base">{platformUser.name}</p>
+                                  <StatusBadge
+                                    label={getRoleLabel(platformUser.role)}
+                                    tone="border-slate-200 bg-slate-100 text-slate-700"
+                                  />
+                                  {platformUser.disabled ? (
+                                    <StatusBadge
+                                      label="Disabled"
+                                      tone="border-rose-200 bg-rose-50 text-rose-700"
+                                    />
+                                  ) : null}
+                                </div>
+                                <p className="truncate text-sm text-slate-500">{platformUser.email}</p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {[platformUser.matric, platformUser.hostel, platformUser.room]
+                                    .filter(Boolean)
+                                    .join(' • ') || 'No extra profile data'}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  variant="outline"
+                                  className="rounded-full border-white/80 bg-white/80 hover:bg-white"
+                                  disabled={processingId === platformUser.id}
+                                  onClick={() => {
+                                    if (platformUser.role === 'student') {
+                                      void handleViewStudent(platformUser.id);
+                                      return;
+                                    }
+
+                                    setActionError('');
+                                    setActionMessage(`${platformUser.name} is listed in the platform directory.`);
+                                  }}
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  className="rounded-full border-white/80 bg-white/80 hover:bg-white"
+                                  disabled={processingId === platformUser.id}
+                                  onClick={() => void handleResetUserPassword(platformUser)}
+                                >
+                                  <KeyRound className="mr-2 h-4 w-4" />
+                                  Reset
+                                </Button>
+                                {platformUser.role !== 'super_admin' ? (
+                                  <Button
+                                    variant="outline"
+                                    className="rounded-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white"
+                                    disabled={processingId === platformUser.id}
+                                    onClick={() => void handleToggleUserStatus(platformUser)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    {platformUser.disabled ? 'Enable' : 'Disable'}
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {!filteredPlatformUsers.length ? (
+                          <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm text-slate-500">
+                            No users match the current search and filters.
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="rounded-[1.5rem] border border-blue-100/80 bg-white/80 p-4">
+                        <p className="text-sm font-semibold text-slate-950">Overdue passes</p>
+                        <div className="mt-3 max-h-52 space-y-2 overflow-y-auto pr-1">
+                          {overduePasses.length ? (
+                            overduePasses.map((pass) => (
+                              <div key={pass.id} className="rounded-[1rem] border border-slate-200 bg-slate-50/80 px-3 py-2">
+                                <p className="text-sm font-medium text-slate-950">{pass.student?.name || 'Unknown student'}</p>
+                                <p className="text-xs text-slate-500">
+                                  {pass.destination} • Due {formatDateTime(pass.expectedReturnDate)}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-slate-500">No overdue passes right now.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[1.5rem] border border-blue-100/80 bg-white/80 p-4">
+                        <p className="text-sm font-semibold text-slate-950">Recent scans</p>
+                        <div className="mt-3 max-h-52 space-y-2 overflow-y-auto pr-1">
+                          {scanHistory.length ? (
+                            scanHistory.map((scan) => (
+                              <div key={scan.id} className="rounded-[1rem] border border-slate-200 bg-slate-50/80 px-3 py-2">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-medium text-slate-950">{scan.location}</p>
+                                  <StatusBadge
+                                    label={scan.status}
+                                    tone={
+                                      scan.status === 'success'
+                                        ? 'border-blue-200 bg-blue-50 text-blue-800'
+                                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                                    }
+                                  />
+                                </div>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {(scan.eventType || 'scan').toUpperCase()} • {scan.qrCode} • {formatDateTime(scan.timestamp)}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-slate-500">No recent scans yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1259,32 +1631,48 @@ export default function AdminDashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {pendingRequests.map((request) => (
-                    <button
-                      key={request.id}
-                      type="button"
-                      onClick={() => setSelectedRequest(request)}
-                      className="flex w-full flex-col gap-3 rounded-[1.35rem] border border-blue-100/80 bg-white/80 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold text-slate-950">
-                          {request.student?.name || 'Unknown student'}
-                        </p>
-                        <p className="truncate text-sm text-slate-500">
-                          {request.student?.matric || 'No matric'}{request.student?.hostel ? ` • ${request.student.hostel}` : ''}
-                        </p>
+                  <Input
+                    value={requestFilters.search}
+                    onChange={(event) =>
+                      setRequestFilters((current) => ({ ...current, search: event.target.value }))
+                    }
+                    placeholder="Search student, hostel, destination, or reason..."
+                    className="border-slate-200 bg-white/85"
+                  />
+                  <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+                    {filteredRequests.map((request) => (
+                      <button
+                        key={request.id}
+                        type="button"
+                        onClick={() => setSelectedRequest(request)}
+                        className="flex w-full flex-col gap-3 rounded-[1.2rem] border border-blue-100/80 bg-white/80 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-white sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-950 sm:text-base">
+                            {request.student?.name || 'Unknown student'}
+                          </p>
+                          <p className="truncate text-xs text-slate-500 sm:text-sm">
+                            {request.student?.matric || 'No matric'}
+                            {request.student?.hostel ? ` • ${request.student.hostel}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:text-sm">
+                          <span className="max-w-full truncate">{request.destination}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span>{formatDateTime(request.departureDate)}</span>
+                          <StatusBadge
+                            label={getStageLabel(request)}
+                            tone="border-blue-200 bg-blue-50 text-blue-800"
+                          />
+                        </div>
+                      </button>
+                    ))}
+                    {!filteredRequests.length ? (
+                      <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm text-slate-500">
+                        No requests match this search.
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                        <span>{request.destination}</span>
-                        <span>•</span>
-                        <span>{formatDateTime(request.departureDate)}</span>
-                        <StatusBadge
-                          label={getStageLabel(request)}
-                          tone="border-blue-200 bg-blue-50 text-blue-800"
-                        />
-                      </div>
-                    </button>
-                  ))}
+                    ) : null}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1348,7 +1736,7 @@ export default function AdminDashboardPage() {
                               <InfoBlock label="Phone" value={selectedRequestStudent.phone || 'Not set'} />
                             </div>
                             {selectedRequestStudent.passHistory.length ? (
-                              <div className="space-y-2">
+                              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                                 {selectedRequestStudent.passHistory.map((pass) => (
                                   <div
                                     key={pass.id}
@@ -1523,48 +1911,81 @@ export default function AdminDashboardPage() {
                   </div>
 
                   {filteredStudents.length ? (
-                    <div className="overflow-hidden rounded-[1.5rem] border border-blue-100/80 bg-white/80">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="hover:bg-transparent">
-                            <TableHead>Name</TableHead>
-                            <TableHead>Matric</TableHead>
-                            <TableHead>Hostel</TableHead>
-                            <TableHead>Room</TableHead>
-                            <TableHead>Department</TableHead>
-                            <TableHead>Level</TableHead>
-                            <TableHead className="text-right">Action</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredStudents.map((student) => (
-                            <TableRow key={student.id} className="bg-transparent">
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium text-slate-950">{student.name}</p>
-                                  <p className="text-xs text-slate-500">{student.email}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell>{student.matric || 'Not set'}</TableCell>
-                              <TableCell>{student.hostel || 'Not set'}</TableCell>
-                              <TableCell>{student.room || 'Not set'}</TableCell>
-                              <TableCell>{student.department || 'Not set'}</TableCell>
-                              <TableCell>{student.level ? `${student.level}` : 'Not set'}</TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => void handleViewStudent(student.id)}
-                                  className="rounded-full border-white/80 bg-white/80 text-slate-700 hover:bg-white"
-                                >
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Open
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                    <div className="space-y-3">
+                      <div className="grid gap-2 md:hidden">
+                        {filteredStudents.map((student) => (
+                          <div
+                            key={student.id}
+                            className="rounded-[1.2rem] border border-blue-100/80 bg-white/80 px-4 py-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-950">{student.name}</p>
+                                <p className="truncate text-xs text-slate-500">{student.email}</p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void handleViewStudent(student.id)}
+                                className="rounded-full border-white/80 bg-white/80 px-3 text-slate-700 hover:bg-white"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                              <span>{student.matric || 'No matric'}</span>
+                              <span>{student.hostel || 'No hostel'}</span>
+                              <span>Room {student.room || 'Not set'}</span>
+                              <span>{student.level ? `${student.level} level` : 'No level'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="hidden overflow-hidden rounded-[1.5rem] border border-blue-100/80 bg-white/80 md:block">
+                        <div className="max-h-[30rem] overflow-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead>Name</TableHead>
+                                <TableHead>Matric</TableHead>
+                                <TableHead>Hostel</TableHead>
+                                <TableHead>Room</TableHead>
+                                <TableHead>Department</TableHead>
+                                <TableHead>Level</TableHead>
+                                <TableHead className="text-right">Action</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredStudents.map((student) => (
+                                <TableRow key={student.id} className="bg-transparent text-sm">
+                                  <TableCell className="py-3">
+                                    <div>
+                                      <p className="font-medium text-slate-950">{student.name}</p>
+                                      <p className="text-xs text-slate-500">{student.email}</p>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-3">{student.matric || 'Not set'}</TableCell>
+                                  <TableCell className="py-3">{student.hostel || 'Not set'}</TableCell>
+                                  <TableCell className="py-3">{student.room || 'Not set'}</TableCell>
+                                  <TableCell className="py-3">{student.department || 'Not set'}</TableCell>
+                                  <TableCell className="py-3">{student.level ? `${student.level}` : 'Not set'}</TableCell>
+                                  <TableCell className="py-3 text-right">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => void handleViewStudent(student.id)}
+                                      className="rounded-full border-white/80 bg-white/80 text-slate-700 hover:bg-white"
+                                    >
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      Open
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/80 p-6 text-sm text-slate-500">
@@ -1598,7 +2019,8 @@ export default function AdminDashboardPage() {
                       <div className="space-y-2">
                         <h3 className="text-lg font-semibold text-slate-950">Pass history</h3>
                         {selectedStudent.passHistory?.length ? (
-                          selectedStudent.passHistory.map((pass) => (
+                          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                            {selectedStudent.passHistory.map((pass) => (
                             <div key={pass.id} className="flex items-center justify-between rounded-[1.25rem] border border-blue-100/80 bg-white/80 px-4 py-3">
                               <div>
                                 <p className="font-medium text-slate-950">{pass.destination}</p>
@@ -1611,7 +2033,8 @@ export default function AdminDashboardPage() {
                                 tone={`${getPassStatusMeta(pass).surface} ${getPassStatusMeta(pass).tone}`}
                               />
                             </div>
-                          ))
+                            ))}
+                          </div>
                         ) : (
                           <p className="text-sm text-slate-500">No pass history yet.</p>
                         )}
@@ -1923,6 +2346,22 @@ export default function AdminDashboardPage() {
           <SectionIntro title="Updates" description="Send announcements." />
           <Card className="brand-panel border">
             <CardContent className="space-y-4 pt-6">
+              <Field label="Audience">
+                <select
+                  value={announcementRecipientRole}
+                  onChange={(event) =>
+                    setAnnouncementRecipientRole(event.target.value as 'all' | User['role'])
+                  }
+                  className="flex h-10 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-950"
+                >
+                  <option value="all">Everyone</option>
+                  <option value="student">Students</option>
+                  <option value="hall_admin">Hall Admins</option>
+                  <option value="chaplaincy">Chaplaincy</option>
+                  <option value="security">Security</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </Field>
               <Field label="Title">
                 <Input
                   value={announcement.title}
@@ -1949,14 +2388,46 @@ export default function AdminDashboardPage() {
           {announcementsLoading ? (
             <LoadingCard label="Loading announcements..." />
           ) : (
-            announcements.map((item) => (
-              <Card key={item.id} className="brand-panel border">
-                <CardContent className="pt-6">
-                  <p className="font-semibold text-slate-950">{item.title}</p>
-                  <p className="mt-2 text-sm text-slate-500">{item.message}</p>
-                </CardContent>
-              </Card>
-            ))
+            <Card className="brand-panel border">
+              <CardHeader>
+                <CardTitle className="text-lg text-slate-950">Announcement history</CardTitle>
+                <CardDescription className="text-slate-500">
+                  Search public and role-targeted updates.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Input
+                  value={announcementFilters.search}
+                  onChange={(event) =>
+                    setAnnouncementFilters((current) => ({ ...current, search: event.target.value }))
+                  }
+                  placeholder="Search title, message, or audience..."
+                  className="border-slate-200 bg-white/85"
+                />
+                <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+                  {filteredAnnouncements.map((item) => (
+                    <div key={item.id} className="rounded-[1.25rem] border border-blue-100/80 bg-white/80 p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-slate-950">{item.title}</p>
+                        <StatusBadge
+                          label={item.recipientRole ? getRoleLabel(item.recipientRole) : 'Everyone'}
+                          tone="border-slate-200 bg-slate-100 text-slate-700"
+                        />
+                      </div>
+                      <p className="mt-2 text-sm text-slate-500">{item.message}</p>
+                      <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+                        {formatDateTime(item.createdAt)}
+                      </p>
+                    </div>
+                  ))}
+                  {!filteredAnnouncements.length ? (
+                    <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm text-slate-500">
+                      No announcements match this search.
+                    </div>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
@@ -2042,6 +2513,7 @@ function SectionIntro({ title, description }: { title: string; description: stri
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h1>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>
     </div>
   );
 }
@@ -2092,5 +2564,14 @@ function StatCard({ label, value, color }: { label: string; value: number; color
         <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function MetricMiniCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-[1.1rem] border border-blue-100/80 bg-white/80 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+    </div>
   );
 }

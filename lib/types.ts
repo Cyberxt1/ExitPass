@@ -11,6 +11,7 @@ export type PassStatus =
   | "pending"
   | "approved"
   | "rejected"
+  | "cancelled"
   | "expired"
   | "completed"
   | "chaplaincy_required";

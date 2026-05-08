@@ -39,6 +39,11 @@ const baseStatusMeta: Record<
     tone: "text-slate-700",
     surface: "border-slate-300 bg-white",
   },
+  cancelled: {
+    label: "Cancelled",
+    tone: "text-slate-700",
+    surface: "border-slate-200 bg-slate-100",
+  },
   expired: {
     label: "Expired",
     tone: "text-slate-700",

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertCircle,
   CheckCircle2,
   Clock3,
   Copy,
@@ -28,7 +29,6 @@ import { useAuth } from '@/lib/auth-context';
 import { apiService } from '@/lib/api-service';
 import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import {
-  countPassesByStatus,
   formatDate,
   formatDateTime,
   formatDurationDays,
@@ -45,7 +45,7 @@ const filters: Array<{ id: FilterId; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'approved', label: 'Approved' },
   { id: 'open', label: 'In progress' },
-  { id: 'rejected', label: 'Rejected' },
+  { id: 'rejected', label: 'Closed' },
 ];
 
 function getApprovalCopy(label: string, approval?: Pass['chaplainApproval']) {
@@ -97,6 +97,9 @@ export default function PassesPage() {
   const [activeFilter, setActiveFilter] = useState<FilterId>('all');
   const [loadError, setLoadError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -139,7 +142,7 @@ export default function PassesPage() {
       case 'open':
         return passes.filter((pass) => ['pending', 'chaplaincy_required'].includes(pass.status));
       case 'rejected':
-        return passes.filter((pass) => pass.status === 'rejected');
+        return passes.filter((pass) => ['rejected', 'cancelled'].includes(pass.status));
       default:
         return passes;
     }
@@ -163,6 +166,29 @@ export default function PassesPage() {
     await navigator.clipboard.writeText(selectedPass.qrCode);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
+  };
+
+  const handleCancelRequest = async (pass: Pass) => {
+    const requestId = pass.requestId || pass.id;
+
+    if (!requestId) {
+      return;
+    }
+
+    setCancellingId(pass.id);
+    setActionError('');
+    setActionMessage('');
+
+    try {
+      await apiService.cancelPassRequest(requestId);
+      setActionMessage('Pass request cancelled.');
+      setSelectedPass(null);
+      await loadPasses();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to cancel this request.');
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   const downloadPass = () => {
@@ -212,8 +238,8 @@ export default function PassesPage() {
               accentClassName="brand-icon-chip"
             />
             <MetricCard
-              label="Rejected"
-              value={countPassesByStatus(passes, 'rejected')}
+              label="Closed"
+              value={passes.filter((pass) => ['rejected', 'cancelled'].includes(pass.status)).length}
               icon={XCircle}
               accentClassName="brand-icon-chip"
             />
@@ -234,6 +260,16 @@ export default function PassesPage() {
           />
         ) : passes.length ? (
           <div className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
+            {actionMessage ? (
+              <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 lg:col-span-2">
+                {actionMessage}
+              </div>
+            ) : null}
+            {actionError ? (
+              <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 lg:col-span-2">
+                {actionError}
+              </div>
+            ) : null}
             <SectionCard
               title="Latest approved pass"
               description="Quick access to your current gate pass."
@@ -406,24 +442,44 @@ export default function PassesPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button
-                      onClick={downloadPass}
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <Button
+                          onClick={downloadPass}
                       disabled={!selectedPass.qrCode}
                       className="h-11 flex-1 rounded-full bg-slate-950 text-white hover:bg-slate-800"
                     >
                       <Download className="mr-2 h-4 w-4" />
                       Print or save pass
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => void copyPassId()}
-                      disabled={!selectedPass.qrCode}
-                      className="h-11 rounded-full border-slate-300 bg-white text-slate-900 hover:bg-slate-50 sm:flex-none"
-                    >
-                      <Copy className="mr-2 h-4 w-4" />
-                      {copied ? 'Copied' : 'Copy pass ID'}
-                    </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => void copyPassId()}
+                        disabled={!selectedPass.qrCode}
+                        className="h-11 rounded-full border-slate-300 bg-white text-slate-900 hover:bg-slate-50 sm:flex-none"
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        {copied ? 'Copied' : 'Copy pass ID'}
+                      </Button>
+                      {['chaplaincy_required', 'pending'].includes(selectedPass.status) ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => void handleCancelRequest(selectedPass)}
+                          disabled={cancellingId === selectedPass.id}
+                          className="h-11 rounded-full border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 sm:flex-none"
+                        >
+                          {cancellingId === selectedPass.id ? (
+                            <>
+                              <Clock3 className="mr-2 h-4 w-4 animate-pulse" />
+                              Cancelling...
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="mr-2 h-4 w-4" />
+                              Cancel request
+                            </>
+                          )}
+                        </Button>
+                      ) : null}
                   </div>
 
                   <div className="grid gap-3">

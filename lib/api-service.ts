@@ -1014,6 +1014,48 @@ export const apiService = {
     return mapPassRequest(updatedRequest.id, updatedRequest.data() || {});
   },
 
+  async cancelPassRequest(requestId: string) {
+    const actor = await getCurrentSignedInProfile();
+
+    if (actor.role !== "student") {
+      throw new Error("Only the signed-in student can cancel this request.");
+    }
+
+    const requestRef = doc(getFirebaseDb(), "passRequests", requestId);
+    const requestSnapshot = await getDoc(requestRef);
+
+    if (!requestSnapshot.exists()) {
+      throw new Error("Pass request not found.");
+    }
+
+    const requestRecord = mapPassRequest(requestSnapshot.id, requestSnapshot.data());
+
+    if (requestRecord.studentId !== actor.id) {
+      throw new Error("You can only cancel your own request.");
+    }
+
+    if (!["chaplaincy_required", "pending"].includes(requestRecord.status)) {
+      throw new Error("Only requests still in review can be cancelled.");
+    }
+
+    await updateDoc(requestRef, {
+      status: "cancelled",
+      currentStage: "completed",
+      rejectionReason: "Cancelled by student.",
+      updatedAt: serverTimestamp(),
+    });
+
+    await createNotificationRecord({
+      userId: actor.id,
+      title: "Pass request cancelled",
+      message: "Your pass request has been cancelled and removed from the approval flow.",
+      type: "pass_update",
+    });
+
+    const updatedRequest = await getDoc(requestRef);
+    return mapPassRequest(updatedRequest.id, updatedRequest.data() || {});
+  },
+
   async getStudentPasses(studentId: string) {
     assertFirebaseReady();
 
