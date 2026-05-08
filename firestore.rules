@@ -420,6 +420,16 @@
           ]);
       }
 
+      function canCreateOwnNotification() {
+        return isSignedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.message is string
+          && request.resource.data.type in ['info', 'pass_update', 'return_update']
+          && request.resource.data.read == false
+          && request.resource.data.createdAt is timestamp;
+      }
+
       function canSelfAssignHallAdminHostel(userId) {
         return isOwner(userId)
           && resource.data.role == 'hall_admin'
@@ -601,10 +611,15 @@
       match /notifications/{notificationId} {
         allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isPrivileged());
         allow create: if isSignedIn()
-          && isPrivileged()
-          && request.resource.data.userId is string
-          && request.resource.data.title is string
-          && request.resource.data.message is string;
+          && (
+            (
+              isPrivileged()
+              && request.resource.data.userId is string
+              && request.resource.data.title is string
+              && request.resource.data.message is string
+            )
+            || canCreateOwnNotification()
+          );
         allow update: if isSignedIn()
           && resource.data.userId == request.auth.uid
           && request.resource.data.userId == resource.data.userId

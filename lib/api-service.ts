@@ -1045,12 +1045,16 @@ export const apiService = {
       updatedAt: serverTimestamp(),
     });
 
-    await createNotificationRecord({
-      userId: actor.id,
-      title: "Pass request cancelled",
-      message: "Your pass request has been cancelled and removed from the approval flow.",
-      type: "pass_update",
-    });
+    try {
+      await createNotificationRecord({
+        userId: actor.id,
+        title: "Pass request cancelled",
+        message: "Your pass request has been cancelled and removed from the approval flow.",
+        type: "pass_update",
+      });
+    } catch (error) {
+      console.warn("Pass request was cancelled, but the student notification could not be created.", error);
+    }
 
     const updatedRequest = await getDoc(requestRef);
     return mapPassRequest(updatedRequest.id, updatedRequest.data() || {});
