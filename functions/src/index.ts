@@ -1150,6 +1150,8 @@ export const cancelPassRequest = onCall(callableOptions, async (request) => {
   }
 
   const requestRef = db.collection('passRequests').doc(requestId);
+  const passRef = db.collection('passes').doc(requestId);
+  let shouldCancelPass = false;
 
   await db.runTransaction(async (transaction) => {
     const requestSnapshot = await transaction.get(requestRef);
@@ -1166,8 +1168,8 @@ export const cancelPassRequest = onCall(callableOptions, async (request) => {
       throw new HttpsError('permission-denied', 'You can only cancel your own request.');
     }
 
-    if (!['chaplaincy_required', 'pending'].includes(status)) {
-      throw new HttpsError('failed-precondition', 'Only requests still in review can be cancelled.');
+    if (!['chaplaincy_required', 'pending', 'approved'].includes(status)) {
+      throw new HttpsError('failed-precondition', 'Only active requests can be cancelled.');
     }
 
     transaction.update(requestRef, {
@@ -1176,12 +1178,36 @@ export const cancelPassRequest = onCall(callableOptions, async (request) => {
       rejectionReason: 'Cancelled by student.',
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+    if (status === 'approved') {
+      const passSnapshot = await transaction.get(passRef);
+
+      if (!passSnapshot.exists) {
+        throw new HttpsError('not-found', 'Approved pass record not found.');
+      }
+
+      const passData = passSnapshot.data() as Record<string, unknown>;
+      const passStatus = String(passData.status || 'approved') as PassStatus;
+      const actualReturnDate = passData.actualReturnDate;
+
+      if (passStatus !== 'approved' || actualReturnDate) {
+        throw new HttpsError('failed-precondition', 'This pass can no longer be cancelled.');
+      }
+
+      transaction.update(passRef, {
+        status: 'cancelled',
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      shouldCancelPass = true;
+    }
   });
 
   await createNotification(
     caller.uid,
     'Pass request cancelled',
-    'Your pass request has been cancelled and removed from the approval flow.',
+    shouldCancelPass
+      ? 'Your approved pass has been cancelled and removed from the approval flow.'
+      : 'Your pass request has been cancelled and removed from the approval flow.',
     'pass_update',
   );
 

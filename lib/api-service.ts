@@ -1144,22 +1144,52 @@ export const apiService = {
       throw new Error("You can only cancel your own request.");
     }
 
-    if (!["chaplaincy_required", "pending"].includes(requestRecord.status)) {
-      throw new Error("Only requests still in review can be cancelled.");
+    if (!["chaplaincy_required", "pending", "approved"].includes(requestRecord.status)) {
+      throw new Error("Only active requests can be cancelled.");
     }
 
-    await updateDoc(requestRef, {
+    const batch = writeBatch(getFirebaseDb());
+    batch.update(requestRef, {
       status: "cancelled",
       currentStage: "completed",
       rejectionReason: "Cancelled by student.",
       updatedAt: serverTimestamp(),
     });
 
+    if (requestRecord.status === "approved") {
+      const passRef = doc(getFirebaseDb(), "passes", requestId);
+      const passSnapshot = await getDoc(passRef);
+
+      if (!passSnapshot.exists()) {
+        throw new Error("Approved pass record not found.");
+      }
+
+      const passRecord = mapPass(passSnapshot.id, passSnapshot.data());
+
+      if (passRecord.studentId !== actor.id) {
+        throw new Error("You can only cancel your own pass.");
+      }
+
+      if (passRecord.status !== "approved" || passRecord.actualReturnDate) {
+        throw new Error("This pass can no longer be cancelled.");
+      }
+
+      batch.update(passRef, {
+        status: "cancelled",
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+
     try {
       await createNotificationRecord({
         userId: actor.id,
         title: "Pass request cancelled",
-        message: "Your pass request has been cancelled and removed from the approval flow.",
+        message:
+          requestRecord.status === "approved"
+            ? "Your approved pass has been cancelled and removed from the approval flow."
+            : "Your pass request has been cancelled and removed from the approval flow.",
         type: "pass_update",
       });
     } catch (error) {
