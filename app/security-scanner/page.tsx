@@ -39,6 +39,7 @@ import { apiService } from '@/lib/api-service';
 import { getDefaultRouteForRole } from '@/lib/firebase/auth';
 import { formatDateTime } from '@/lib/platform';
 import type { Announcement, Pass, PassVerificationResult, ScanLog } from '@/lib/types';
+import jsQR from 'jsqr';
 
 type SecurityTabId = 'history' | 'overdue' | 'updates';
 type VerifyMode = 'scan' | 'upload' | 'manual';
@@ -68,6 +69,7 @@ export default function SecurityScannerPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scanTimerRef = useRef<number | null>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<BarcodeDetectorInstance | null>(null);
@@ -108,11 +110,11 @@ export default function SecurityScannerPage() {
   }, [user?.id]);
 
   useEffect(() => {
-    const detectorConstructor = typeof window !== 'undefined'
-      ? ((window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector ?? null)
-      : null;
+    const hasCameraSupport =
+      typeof navigator !== 'undefined' &&
+      Boolean(navigator.mediaDevices?.getUserMedia);
 
-    setScannerAvailable(Boolean(detectorConstructor));
+    setScannerAvailable(hasCameraSupport);
   }, []);
 
   useEffect(() => {
@@ -203,6 +205,38 @@ export default function SecurityScannerPage() {
     return new detectorConstructor({ formats: ['qr_code'] });
   };
 
+  const decodeQrFromCanvas = (canvas: HTMLCanvasElement) => {
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (!context) {
+      return '';
+    }
+
+    const { width, height } = canvas;
+    const imageData = context.getImageData(0, 0, width, height);
+    const decoded = jsQR(imageData.data, width, height);
+    return decoded?.data?.trim() || '';
+  };
+
+  const drawVideoFrameToCanvas = (video: HTMLVideoElement) => {
+    const canvas = canvasRef.current;
+
+    if (!canvas || !video.videoWidth || !video.videoHeight) {
+      return null;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      return null;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  };
+
   const handleDetectedCode = async (rawValue: string) => {
     const normalizedValue = rawValue.trim();
 
@@ -242,8 +276,15 @@ export default function SecurityScannerPage() {
     scanningBusyRef.current = true;
 
     try {
-      const detections = await detectorRef.current.detect(video);
-      const detectedValue = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim();
+      let detectedValue = '';
+
+      if (detectorRef.current) {
+        const detections = await detectorRef.current.detect(video);
+        detectedValue = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim() || '';
+      } else {
+        const canvas = drawVideoFrameToCanvas(video);
+        detectedValue = canvas ? decodeQrFromCanvas(canvas) : '';
+      }
 
       if (detectedValue) {
         await handleDetectedCode(detectedValue);
@@ -260,7 +301,7 @@ export default function SecurityScannerPage() {
 
   const startScanner = async () => {
     if (!scannerAvailable) {
-      setScannerStatus('Camera scanning is unavailable here. Use image upload or type the pass ID.');
+      setScannerStatus('This device cannot open the camera. Use image upload or type the pass ID.');
       return;
     }
 
@@ -268,7 +309,12 @@ export default function SecurityScannerPage() {
     setScannerStatus('Opening camera...');
 
     try {
-      detectorRef.current = await getBarcodeDetector();
+      try {
+        detectorRef.current = await getBarcodeDetector();
+      } catch {
+        detectorRef.current = null;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
@@ -282,7 +328,11 @@ export default function SecurityScannerPage() {
         await videoRef.current.play();
       }
 
-      setScannerStatus('Point the camera at the pass QR code.');
+      setScannerStatus(
+        detectorRef.current
+          ? 'Point the camera at the pass QR code.'
+          : 'Point the camera at the pass QR code. Using built-in fallback scanner.',
+      );
       queueScanFrame();
     } catch (error) {
       stopScanner();
@@ -344,12 +394,34 @@ export default function SecurityScannerPage() {
     setUploadStatus('');
 
     try {
-      const detector = await getBarcodeDetector();
       const imageBitmap = await createImageBitmap(file);
-      const detections = await detector.detect(imageBitmap);
-      imageBitmap.close();
+      const barcodeDetector = await getBarcodeDetector().catch(() => null);
+      let detectedValue = '';
 
-      const detectedValue = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim();
+      if (barcodeDetector) {
+        const detections = await barcodeDetector.detect(imageBitmap);
+        detectedValue = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim() || '';
+      } else {
+        const canvas = canvasRef.current;
+
+        if (!canvas) {
+          throw new Error('QR image scanning is unavailable right now.');
+        }
+
+        canvas.width = imageBitmap.width;
+        canvas.height = imageBitmap.height;
+        const context = canvas.getContext('2d');
+
+        if (!context) {
+          imageBitmap.close();
+          throw new Error('QR image scanning is unavailable right now.');
+        }
+
+        context.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+        detectedValue = decodeQrFromCanvas(canvas);
+      }
+
+      imageBitmap.close();
 
       if (!detectedValue) {
         setUploadStatus('No QR code was found in that image.');
@@ -897,6 +969,7 @@ export default function SecurityScannerPage() {
                   )}
                 </div>
               ) : null}
+              <canvas ref={canvasRef} className="hidden" />
             </div>
           </DialogContent>
         </Dialog>
