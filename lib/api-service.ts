@@ -1116,6 +1116,21 @@ export const apiService = {
       throw new Error("Only the signed-in student can cancel this request.");
     }
 
+    try {
+      const result = await callCloudFunction<
+        { requestId: string },
+        { request: Record<string, unknown> }
+      >("cancelPassRequest", {
+        requestId,
+      });
+
+      return mapPassRequest(result.request.id as string, result.request);
+    } catch (error) {
+      if (!isCallableUnavailable(error)) {
+        throw new Error(getCallableMessage(error, "Unable to cancel this request."));
+      }
+    }
+
     const requestRef = doc(getFirebaseDb(), "passRequests", requestId);
     const requestSnapshot = await getDoc(requestRef);
 
@@ -1555,7 +1570,7 @@ export const apiService = {
       getPrivilegedRoleByEmail(normalizedEmail) || directRole;
     let hostel = "";
     let hostelId = "";
-    const approvalStatus: User["approvalStatus"] = "approved";
+    let approvalStatus: User["approvalStatus"] = "pending";
 
     if (token) {
       const invite = await this.getStaffInviteDetails(token);
@@ -1571,6 +1586,7 @@ export const apiService = {
       role = invite.role;
       hostel = invite.hostel || "";
       hostelId = invite.hostelId || "";
+      approvalStatus = "approved";
     }
 
     if (!role) {
@@ -1599,7 +1615,7 @@ export const apiService = {
       permissions: getDefaultPermissionsForRole(role),
       disabled: false,
       approvalStatus,
-      approvalReviewedAt: serverTimestamp(),
+      ...(approvalStatus === "approved" ? { approvalReviewedAt: serverTimestamp() } : {}),
       ...(token ? { inviteToken: token } : {}),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),

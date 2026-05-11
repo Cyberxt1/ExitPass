@@ -271,6 +271,16 @@ function getReadableAuthError(error: unknown, fallback: string) {
   }
 }
 
+function isMissingStudentProfileError(error: unknown) {
+  return error instanceof Error && error.message.includes("student profile is incomplete");
+}
+
+function wait(delayMs: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs);
+  });
+}
+
 async function writeStudentProfile(profile: PendingStudentProfile) {
   const db = getFirebaseDb();
   const batch = writeBatch(db);
@@ -557,12 +567,79 @@ async function loadUserProfile(firebaseUser: FirebaseUser): Promise<User> {
     );
   }
 
+  if (resolvedProfile.role !== "student" && resolvedProfile.approvalStatus === "pending") {
+    await signOut(getFirebaseAuth());
+    throw new Error("Your staff account is waiting for super admin approval.");
+  }
+
   if (resolvedProfile.disabled) {
     await signOut(getFirebaseAuth());
     throw new Error("This account has been disabled. Contact the platform administrator.");
   }
 
   return resolvedProfile;
+}
+
+async function loadUserProfileWithRetry(
+  firebaseUser: FirebaseUser,
+  options?: {
+    attempts?: number;
+    initialDelayMs?: number;
+  },
+): Promise<User> {
+  const attempts = options?.attempts ?? 5;
+  const initialDelayMs = options?.initialDelayMs ?? 250;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await loadUserProfile(firebaseUser);
+    } catch (error) {
+      lastError = error;
+
+      if (
+        attempt === attempts - 1 ||
+        (!isMissingStudentProfileError(error) &&
+          !(error instanceof Error && error.message.includes("Failed to get document")))
+      ) {
+        throw error;
+      }
+
+      await wait(initialDelayMs * (attempt + 1));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Failed to load user profile.");
+}
+
+async function signInWithRetry(email: string, password: string, attempts = 4) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+    } catch (error) {
+      lastError = error;
+      const code =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        typeof (error as { code?: unknown }).code === "string"
+          ? (error as { code: string }).code
+          : "";
+
+      if (
+        attempt === attempts - 1 ||
+        !["auth/user-not-found", "auth/invalid-credential", "auth/network-request-failed"].includes(code)
+      ) {
+        throw error;
+      }
+
+      await wait(350 * (attempt + 1));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Unable to sign in.");
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -576,7 +653,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    const profile = await loadUserProfile(firebaseUser);
+    const profile = await loadUserProfileWithRetry(firebaseUser);
     setUser(profile);
     return profile;
   };
@@ -598,7 +675,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const profile = await loadUserProfile(nextFirebaseUser);
+        const profile = await loadUserProfileWithRetry(nextFirebaseUser, {
+          attempts: 6,
+          initialDelayMs: 250,
+        });
         setUser(profile);
         setError(null);
         void syncStudentAccessDirectoryForPrivilegedUser(profile).catch((syncError) => {
@@ -609,6 +689,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (nextError) {
         console.error("Failed to load user profile", nextError);
+        setUser(null);
         setError(nextError instanceof Error ? nextError.message : "Failed to load user profile.");
       } finally {
         setIsLoading(false);
@@ -634,15 +715,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
           const normalizedEmail = email.trim().toLowerCase();
-          const credentials = await signInWithEmailAndPassword(
-            getFirebaseAuth(),
-            normalizedEmail,
-            password,
-          );
+          const credentials = await signInWithRetry(normalizedEmail, password, 2);
           await credentials.user.getIdToken(true);
-          const profile = await loadUserProfile(credentials.user);
+          const profile = await loadUserProfileWithRetry(credentials.user);
           setFirebaseUser(credentials.user);
           setUser(profile);
+          setError(null);
           void syncStudentAccessDirectoryForPrivilegedUser(profile).catch((syncError) => {
             console.error("Student access directory sync failed", syncError);
           });
@@ -674,16 +752,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: normalizedEmail,
           });
 
-          const credentials = await signInWithEmailAndPassword(
-            getFirebaseAuth(),
-            normalizedEmail,
-            input.password,
-          );
+          const credentials = await signInWithRetry(normalizedEmail, input.password);
           await credentials.user.getIdToken(true);
 
-          const profile = await loadUserProfile(credentials.user);
+          const profile = await loadUserProfileWithRetry(credentials.user);
           setFirebaseUser(credentials.user);
           setUser(profile);
+          setError(null);
           return profile;
         } catch (nextError) {
           const fallbackAllowed =
@@ -733,9 +808,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               await writeStudentProfile(pendingProfile);
               clearPendingProfile(credentials.user.uid);
 
-              const profile = await loadUserProfile(credentials.user);
+              const profile = await loadUserProfileWithRetry(credentials.user);
               setFirebaseUser(credentials.user);
               setUser(profile);
+              setError(null);
               return profile;
             } catch (fallbackError) {
               const authUser = getFirebaseAuth().currentUser;
@@ -751,6 +827,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setError(message);
               throw new Error(message);
             }
+          }
+
+          try {
+            const normalizedEmail = normalizeEmail(input.email);
+            const recoveredCredentials = await signInWithRetry(normalizedEmail, input.password, 2);
+            await recoveredCredentials.user.getIdToken(true);
+            const recoveredProfile = await loadUserProfileWithRetry(recoveredCredentials.user, {
+              attempts: 6,
+              initialDelayMs: 300,
+            });
+            setFirebaseUser(recoveredCredentials.user);
+            setUser(recoveredProfile);
+            setError(null);
+            return recoveredProfile;
+          } catch {
+            // Ignore recovery failures and surface the original signup error below.
           }
 
           const message = getReadableAuthError(nextError, "Unable to create your account.");

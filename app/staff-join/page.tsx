@@ -93,7 +93,13 @@ function StaffJoinContent() {
       const profile = await login(formData.email, formData.password);
       navigate(getDefaultRouteForRole(profile.role || createdUser.role));
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to create the staff account.");
+      try {
+        const recoveredProfile = await login(formData.email, formData.password);
+        navigate(getDefaultRouteForRole(recoveredProfile.role));
+        return;
+      } catch {
+        setError(nextError instanceof Error ? nextError.message : "Unable to create the staff account.");
+      }
     } finally {
       setIsSubmitting(false);
     }

@@ -1,18 +1,21 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   Bell,
+  Camera,
   CheckCircle2,
   Clock3,
   History,
+  Keyboard,
   MapPin,
   Plus,
   RotateCcw,
   Send,
   ShieldCheck,
+  Upload,
   User as UserIcon,
 } from 'lucide-react';
 
@@ -38,6 +41,20 @@ import { formatDateTime } from '@/lib/platform';
 import type { Announcement, Pass, PassVerificationResult, ScanLog } from '@/lib/types';
 
 type SecurityTabId = 'history' | 'overdue' | 'updates';
+type VerifyMode = 'scan' | 'upload' | 'manual';
+
+type DetectedBarcode = {
+  rawValue?: string;
+};
+
+type BarcodeDetectorInstance = {
+  detect: (source: ImageBitmapSource) => Promise<DetectedBarcode[]>;
+};
+
+type BarcodeDetectorConstructor = {
+  new (options?: { formats?: string[] }): BarcodeDetectorInstance;
+  getSupportedFormats?: () => Promise<string[]>;
+};
 
 function getPassCodeLabel(pass?: Pass | null, fallback = 'Not assigned yet') {
   return pass?.qrCode || fallback;
@@ -50,6 +67,11 @@ function getCheckEventLabel(eventType?: 'scan' | 'return') {
 export default function SecurityScannerPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scanTimerRef = useRef<number | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
+  const detectorRef = useRef<BarcodeDetectorInstance | null>(null);
+  const scanningBusyRef = useRef(false);
   const [passCodeInput, setPassCodeInput] = useState('');
   const [verificationResult, setVerificationResult] = useState<PassVerificationResult | null>(null);
   const [returnRemarks, setReturnRemarks] = useState('');
@@ -65,6 +87,10 @@ export default function SecurityScannerPage() {
   const [announcementDraft, setAnnouncementDraft] = useState({ title: '', message: '' });
   const [updateMessage, setUpdateMessage] = useState('');
   const [updateError, setUpdateError] = useState('');
+  const [verifyMode, setVerifyMode] = useState<VerifyMode>('scan');
+  const [scannerAvailable, setScannerAvailable] = useState(false);
+  const [scannerStatus, setScannerStatus] = useState('Point the camera at the pass QR code.');
+  const [uploadStatus, setUploadStatus] = useState('');
 
   useEffect(() => {
     if (!isLoading && user?.role !== 'security') {
@@ -80,6 +106,34 @@ export default function SecurityScannerPage() {
     void loadSecurityData();
     void loadAnnouncements();
   }, [user?.id]);
+
+  useEffect(() => {
+    const detectorConstructor = typeof window !== 'undefined'
+      ? ((window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector ?? null)
+      : null;
+
+    setScannerAvailable(Boolean(detectorConstructor));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopScanner();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!verifyModalOpen) {
+      stopScanner();
+      return;
+    }
+
+    if (verifyMode === 'scan') {
+      void startScanner();
+      return;
+    }
+
+    stopScanner();
+  }, [verifyModalOpen, verifyMode]);
 
   const loadSecurityData = async () => {
     setSecurityLoading(true);
@@ -110,6 +164,130 @@ export default function SecurityScannerPage() {
     setPassCodeInput('');
     setVerificationResult(null);
     setReturnRemarks('');
+    setUploadStatus('');
+    setScannerStatus('Point the camera at the pass QR code.');
+  };
+
+  const stopScanner = () => {
+    if (scanTimerRef.current !== null) {
+      window.clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
+
+    scanningBusyRef.current = false;
+
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach((track) => track.stop());
+      activeStreamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      (videoRef.current as HTMLVideoElement & { srcObject: MediaStream | null }).srcObject = null;
+    }
+  };
+
+  const getBarcodeDetector = async () => {
+    const detectorConstructor = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
+
+    if (!detectorConstructor) {
+      throw new Error('QR scanning is not supported in this browser yet.');
+    }
+
+    if (typeof detectorConstructor.getSupportedFormats === 'function') {
+      const formats = await detectorConstructor.getSupportedFormats();
+      if (!formats.includes('qr_code')) {
+        throw new Error('This browser can open the camera, but QR scanning is unavailable.');
+      }
+    }
+
+    return new detectorConstructor({ formats: ['qr_code'] });
+  };
+
+  const handleDetectedCode = async (rawValue: string) => {
+    const normalizedValue = rawValue.trim();
+
+    if (!normalizedValue || isVerifying) {
+      return;
+    }
+
+    setPassCodeInput(normalizedValue);
+    stopScanner();
+    setScannerStatus('QR code detected. Checking pass...');
+    await runVerification(normalizedValue);
+  };
+
+  const queueScanFrame = () => {
+    scanTimerRef.current = window.setTimeout(() => {
+      void scanFrame();
+    }, 300);
+  };
+
+  const scanFrame = async () => {
+    if (!verifyModalOpen || verifyMode !== 'scan' || !videoRef.current || !detectorRef.current) {
+      return;
+    }
+
+    const video = videoRef.current;
+
+    if (video.readyState < 2) {
+      queueScanFrame();
+      return;
+    }
+
+    if (scanningBusyRef.current) {
+      queueScanFrame();
+      return;
+    }
+
+    scanningBusyRef.current = true;
+
+    try {
+      const detections = await detectorRef.current.detect(video);
+      const detectedValue = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim();
+
+      if (detectedValue) {
+        await handleDetectedCode(detectedValue);
+        return;
+      }
+    } catch {
+      setScannerStatus('Camera is open, but no QR code has been read yet.');
+    } finally {
+      scanningBusyRef.current = false;
+    }
+
+    queueScanFrame();
+  };
+
+  const startScanner = async () => {
+    if (!scannerAvailable) {
+      setScannerStatus('Camera scanning is unavailable here. Use image upload or type the pass ID.');
+      return;
+    }
+
+    stopScanner();
+    setScannerStatus('Opening camera...');
+
+    try {
+      detectorRef.current = await getBarcodeDetector();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+        },
+        audio: false,
+      });
+      activeStreamRef.current = stream;
+
+      if (videoRef.current) {
+        (videoRef.current as HTMLVideoElement & { srcObject: MediaStream | null }).srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      setScannerStatus('Point the camera at the pass QR code.');
+      queueScanFrame();
+    } catch (error) {
+      stopScanner();
+      setScannerStatus(error instanceof Error ? error.message : 'Unable to open the QR scanner.');
+    }
   };
 
   const runVerification = async (value: string) => {
@@ -144,7 +322,45 @@ export default function SecurityScannerPage() {
     setVerifyModalOpen(open);
 
     if (!open) {
+      stopScanner();
       clearVerificationState();
+    }
+  };
+
+  const handleScanModeChange = (nextMode: VerifyMode) => {
+    setVerifyMode(nextMode);
+    setVerificationResult(null);
+    setUploadStatus('');
+  };
+
+  const handleUploadQrImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setUploadStatus('');
+
+    try {
+      const detector = await getBarcodeDetector();
+      const imageBitmap = await createImageBitmap(file);
+      const detections = await detector.detect(imageBitmap);
+      imageBitmap.close();
+
+      const detectedValue = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim();
+
+      if (!detectedValue) {
+        setUploadStatus('No QR code was found in that image.');
+        return;
+      }
+
+      setUploadStatus(`QR code found: ${detectedValue}`);
+      setPassCodeInput(detectedValue);
+      await runVerification(detectedValue);
+    } catch (error) {
+      setUploadStatus(error instanceof Error ? error.message : 'Unable to read that QR image.');
     }
   };
 
@@ -487,27 +703,109 @@ export default function SecurityScannerPage() {
               <DialogHeader className="pr-10">
                 <DialogTitle className="text-2xl text-slate-950">Verify pass</DialogTitle>
                 <DialogDescription className="text-sm leading-6 text-slate-600">
-                  Enter the student&apos;s 7-digit pass ID to verify gate access.
+                  Scan the student&apos;s QR code, upload a QR image, or enter the 7-digit pass ID manually.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">Pass ID</label>
-                <Input
-                  placeholder="e.g. 4839201"
-                  value={passCodeInput}
-                  onChange={(event) => setPassCodeInput(event.target.value)}
-                  onKeyDown={(event) => event.key === 'Enter' && void handleVerifyPass()}
-                  className="h-14 rounded-[1.25rem] border-slate-200 bg-white/85 text-center font-mono text-lg tracking-[0.25em]"
-                  autoFocus
-                />
-                <Button
-                  onClick={() => void handleVerifyPass()}
-                  disabled={!passCodeInput.trim() || isVerifying}
-                  className="brand-cta h-12 w-full rounded-full border-0"
-                >
-                  {isVerifying ? 'Checking pass...' : 'Verify pass'}
-                </Button>
+              <div className="space-y-4">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleScanModeChange('scan')}
+                    className={`h-11 rounded-full ${
+                      verifyMode === 'scan'
+                        ? 'border-blue-300 bg-blue-50 text-blue-900'
+                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    Scan QR
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleScanModeChange('upload')}
+                    className={`h-11 rounded-full ${
+                      verifyMode === 'upload'
+                        ? 'border-blue-300 bg-blue-50 text-blue-900'
+                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload image
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleScanModeChange('manual')}
+                    className={`h-11 rounded-full ${
+                      verifyMode === 'manual'
+                        ? 'border-blue-300 bg-blue-50 text-blue-900'
+                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Keyboard className="mr-2 h-4 w-4" />
+                    Enter ID
+                  </Button>
+                </div>
+
+                {verifyMode === 'scan' ? (
+                  <div className="space-y-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4">
+                    <div className="overflow-hidden rounded-[1.25rem] border border-slate-200 bg-slate-950">
+                      <video
+                        ref={videoRef}
+                        className="aspect-video w-full object-cover"
+                        autoPlay
+                        muted
+                        playsInline
+                      />
+                    </div>
+                    <p className="text-sm text-slate-600">{scannerStatus}</p>
+                    {!scannerAvailable ? (
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        Try upload image or manual entry on this device.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {verifyMode === 'upload' ? (
+                  <div className="space-y-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4">
+                    <label className="text-sm font-medium text-slate-700">QR image</label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => void handleUploadQrImage(event)}
+                      className="h-12 rounded-[1.25rem] border-slate-200 bg-white/85 file:mr-4 file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                    />
+                    <p className="text-sm text-slate-600">
+                      Upload a screenshot or saved QR image from the student dashboard.
+                    </p>
+                    {uploadStatus ? (
+                      <p className="text-sm text-slate-600">{uploadStatus}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Pass ID</label>
+                  <Input
+                    placeholder="e.g. 4839201"
+                    value={passCodeInput}
+                    onChange={(event) => setPassCodeInput(event.target.value)}
+                    onKeyDown={(event) => event.key === 'Enter' && void handleVerifyPass()}
+                    className="h-14 rounded-[1.25rem] border-slate-200 bg-white/85 text-center font-mono text-lg tracking-[0.25em]"
+                    autoFocus={verifyMode === 'manual'}
+                  />
+                  <Button
+                    onClick={() => void handleVerifyPass()}
+                    disabled={!passCodeInput.trim() || isVerifying}
+                    className="brand-cta h-12 w-full rounded-full border-0"
+                  >
+                    {isVerifying ? 'Checking pass...' : 'Verify pass'}
+                  </Button>
+                </div>
               </div>
 
               {verificationResult ? (

@@ -229,7 +229,18 @@ function StaffPortalSignupContent({ portal }: { portal: StaffPortalSlug }) {
 
       navigate(getDefaultRouteForRole(profile.role || createdUser.role));
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to create the staff account.");
+      try {
+        const recoveredProfile = await login(formData.email, formData.password);
+
+        if (!config.acceptedRoles.includes(recoveredProfile.role)) {
+          throw new Error(`This account belongs on /${getPortalForRole(recoveredProfile.role)}/signup instead.`);
+        }
+
+        navigate(getDefaultRouteForRole(recoveredProfile.role));
+        return;
+      } catch {
+        setError(nextError instanceof Error ? nextError.message : "Unable to create the staff account.");
+      }
     } finally {
       setIsSubmitting(false);
     }

@@ -22,6 +22,7 @@ type PassStatus =
   | 'pending'
   | 'approved'
   | 'rejected'
+  | 'cancelled'
   | 'expired'
   | 'completed'
   | 'chaplaincy_required';
@@ -1135,6 +1136,61 @@ export const rejectPassRequest = onCall(callableOptions, async (request) => {
     request: {
       id: rejectedRequest.id,
       ...serializeForClient(rejectedData || {}),
+    },
+  };
+});
+
+export const cancelPassRequest = onCall(callableOptions, async (request) => {
+  const caller = await ensureRole(request, ['student']);
+  const payload = request.data as Record<string, unknown>;
+  const requestId = String(payload.requestId || '').trim();
+
+  if (!requestId) {
+    throw new HttpsError('invalid-argument', 'requestId is required.');
+  }
+
+  const requestRef = db.collection('passRequests').doc(requestId);
+
+  await db.runTransaction(async (transaction) => {
+    const requestSnapshot = await transaction.get(requestRef);
+
+    if (!requestSnapshot.exists) {
+      throw new HttpsError('not-found', 'Pass request not found.');
+    }
+
+    const requestData = requestSnapshot.data() as Record<string, unknown>;
+    const studentId = typeof requestData.studentId === 'string' ? requestData.studentId : '';
+    const status = String(requestData.status || 'chaplaincy_required') as PassStatus;
+
+    if (studentId !== caller.uid) {
+      throw new HttpsError('permission-denied', 'You can only cancel your own request.');
+    }
+
+    if (!['chaplaincy_required', 'pending'].includes(status)) {
+      throw new HttpsError('failed-precondition', 'Only requests still in review can be cancelled.');
+    }
+
+    transaction.update(requestRef, {
+      status: 'cancelled',
+      currentStage: 'completed',
+      rejectionReason: 'Cancelled by student.',
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  await createNotification(
+    caller.uid,
+    'Pass request cancelled',
+    'Your pass request has been cancelled and removed from the approval flow.',
+    'pass_update',
+  );
+
+  const cancelledRequest = await requestRef.get();
+
+  return {
+    request: {
+      id: cancelledRequest.id,
+      ...serializeForClient(cancelledRequest.data() || {}),
     },
   };
 });

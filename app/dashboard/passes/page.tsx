@@ -37,6 +37,7 @@ import {
   getPassTypeLabel,
   isPassCurrentlyActive,
 } from '@/lib/platform';
+import { createPassQrDataUrl } from '@/lib/qr-code';
 import type { Pass } from '@/lib/types';
 
 type FilterId = 'all' | 'approved' | 'open' | 'rejected';
@@ -157,6 +158,22 @@ export default function PassesPage() {
     () => passes.find((pass) => pass.status === 'approved'),
     [passes],
   );
+  const selectedPassId = selectedPass ? getPassDisplayId(selectedPass) : '';
+  const selectedPassQrImage = useMemo(() => {
+    if (!selectedPass?.qrCode) {
+      return '';
+    }
+
+    try {
+      return createPassQrDataUrl(selectedPass.qrCode, {
+        moduleSize: 10,
+        foreground: '#0f172a',
+        background: '#ffffff',
+      });
+    } catch {
+      return '';
+    }
+  }, [selectedPass]);
 
   const copyPassId = async () => {
     if (!selectedPass?.qrCode) {
@@ -193,6 +210,17 @@ export default function PassesPage() {
 
   const downloadPass = () => {
     window.print();
+  };
+
+  const downloadQrImage = () => {
+    if (!selectedPassQrImage || !selectedPassId) {
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = selectedPassQrImage;
+    link.download = `exitpass-${selectedPassId}.svg`;
+    link.click();
   };
 
   if (isLoading) {
@@ -398,14 +426,22 @@ export default function PassesPage() {
                 <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6">
                   <div className="grid gap-5 lg:grid-cols-[220px,1fr]">
                     <div className="mx-auto w-full max-w-sm rounded-[1.25rem] border border-slate-200 bg-slate-50 p-5 text-center">
-                      <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-[1rem] border border-dashed border-slate-200 bg-white">
-                        <QrCode className="h-16 w-16 text-slate-900" />
+                      <div className="mx-auto flex h-36 w-36 items-center justify-center overflow-hidden rounded-[1rem] border border-dashed border-slate-200 bg-white p-3">
+                        {selectedPassQrImage ? (
+                          <img
+                            src={selectedPassQrImage}
+                            alt={`QR code for pass ${selectedPassId}`}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <QrCode className="h-16 w-16 text-slate-900" />
+                        )}
                       </div>
                       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
                         Pass ID
                       </p>
                       <p className="mt-2 break-all text-xs font-semibold leading-6 text-slate-900 sm:text-sm sm:tracking-[0.14em]">
-                        {getPassDisplayId(selectedPass)}
+                        {selectedPassId}
                       </p>
                       <p className="mt-3 text-xs leading-5 text-slate-500">
                         Use this same pass ID to leave and return until security marks it returned.
@@ -443,14 +479,23 @@ export default function PassesPage() {
                   </div>
 
                       <div className="flex flex-col gap-3 sm:flex-row">
-                        <Button
-                          onClick={downloadPass}
-                      disabled={!selectedPass.qrCode}
-                      className="h-11 flex-1 rounded-full bg-slate-950 text-white hover:bg-slate-800"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Print or save pass
-                    </Button>
+                      <Button
+                        onClick={downloadPass}
+                        disabled={!selectedPass.qrCode}
+                        className="h-11 flex-1 rounded-full bg-slate-950 text-white hover:bg-slate-800"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Print or save pass
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={downloadQrImage}
+                        disabled={!selectedPassQrImage}
+                        className="h-11 rounded-full border-slate-300 bg-white text-slate-900 hover:bg-slate-50 sm:flex-none"
+                      >
+                        <QrCode className="mr-2 h-4 w-4" />
+                        Download QR image
+                      </Button>
                       <Button
                         variant="outline"
                         onClick={() => void copyPassId()}
